@@ -107,28 +107,28 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     private String TAG = "MainActivity";
 
     // For Mediapipe Integration
-    private SurfaceTexture previewFrameTexture;
-    private SurfaceView previewDisplayView;
-
-
-    private EglManager eglManager;
-    private ExternalTextureConverter converter;
-    private MultiInputFrameProcessor processor;
-    private static final String BINARY_GRAPH_NAME = "person_segmentation_android_gpu.binarypb";
-    private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
-    private static final String BG_VIDEO_INPUT_STREAM = "bg_video";
-    private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
-
-    static {
-        // Load all native libraries need ed by the app.
-        System.loadLibrary("mediapipe_jni");
-        try {
-            System.loadLibrary("opencv_java3");
-        } catch (java.lang.UnsatisfiedLinkError e) {
-            // Some example apps (e.g. template matching) require OpenCV 4.
-            System.loadLibrary("opencv_java4");
-        }
-    }
+//    private SurfaceTexture previewFrameTexture;
+//    private SurfaceView previewDisplayView;
+//
+//
+//    private EglManager eglManager;
+//    private ExternalTextureConverter converter;
+//    private MultiInputFrameProcessor processor;
+//    private static final String BINARY_GRAPH_NAME = "person_segmentation_android_gpu.binarypb";
+//    private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
+//    private static final String BG_VIDEO_INPUT_STREAM = "bg_video";
+//    private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
+//
+//    static {
+//        // Load all native libraries need ed by the app.
+//        System.loadLibrary("mediapipe_jni");
+//        try {
+//            System.loadLibrary("opencv_java3");
+//        } catch (java.lang.UnsatisfiedLinkError e) {
+//            // Some example apps (e.g. template matching) require OpenCV 4.
+//            System.loadLibrary("opencv_java4");
+//        }
+//    }
 
     private long oldTime = System.currentTimeMillis();
 
@@ -136,15 +136,15 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     @Override
     protected void onResume() {
         super.onResume();
-        converter = new ExternalTextureConverter(eglManager.getContext());
-        converter.setConsumer(processor);
+       // converter = new ExternalTextureConverter(eglManager.getContext());
+       // converter.setConsumer(processor);
 
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        converter.close();
+       // converter.close();
     }
 
 
@@ -225,8 +225,8 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         // mediapipe Impl
 
 
-        previewDisplayView = new SurfaceView(this);
-        setupPreviewDisplayView();
+       // previewDisplayView = new SurfaceView(this);
+        //setupPreviewDisplayView();
 
         webRTCClient = new WebRTCClient( this,this);
         webRTCClient.setListioner(new NewFrameListioner() {
@@ -238,47 +238,47 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             @Override
             public void onNewTexture(SurfaceTexture texture) {
                 Log.d(TAG,"New TExture");
-                previewDisplayView.setVisibility(View.VISIBLE);
-                previewFrameTexture = texture;
+//                previewDisplayView.setVisibility(View.VISIBLE);
+//                previewFrameTexture = texture;
             }
         });
 
-        eglManager = new EglManager(null);
-
-        try{
-
-            // Mediapipe Processor
-            processor = new MultiInputFrameProcessor(
-                    this,
-                    eglManager.getNativeContext(),
-                    BINARY_GRAPH_NAME,
-                    INPUT_VIDEO_STREAM_NAME,
-                    OUTPUT_VIDEO_STREAM_NAME, BG_VIDEO_INPUT_STREAM);
-
-        }catch (Exception e)
-        {
-
-        }
-
-
-        processor.getVideoSurfaceOutput().setFlipY(true);
-        processor.getGraph().addPacketCallback(OUTPUT_VIDEO_STREAM_NAME, new PacketCallback() {
-            @Override
-            public void process(Packet packet) {
-                //Log.d("FRAME_TEST", "New frame " + hasImin);
-                long curTime = System.currentTimeMillis();
-              //  Log.d("RUNTIME>>", curTime - oldTime + "MS");
-               // run_logs = run_logs + (curTime - oldTime) + " MS\n ";
-                Log.d("RUNTIME>>", curTime - oldTime + "MS");
-                oldTime = curTime;
-
-//                if (!hasImin) {
-//                    Log.d("FRAME_TEST_i", "Condition true");
-//                    hasImin = true;
-//                    directionMessage();
-//                }
-            }
-        });
+       // eglManager = new EglManager(null);
+//
+//        try{
+//
+//            // Mediapipe Processor
+//            processor = new MultiInputFrameProcessor(
+//                    this,
+//                    eglManager.getNativeContext(),
+//                    BINARY_GRAPH_NAME,
+//                    INPUT_VIDEO_STREAM_NAME,
+//                    OUTPUT_VIDEO_STREAM_NAME, BG_VIDEO_INPUT_STREAM);
+//
+//        }catch (Exception e)
+//        {
+//
+//        }
+//
+//
+//        processor.getVideoSurfaceOutput().setFlipY(true);
+//        processor.getGraph().addPacketCallback(OUTPUT_VIDEO_STREAM_NAME, new PacketCallback() {
+//            @Override
+//            public void process(Packet packet) {
+//                //Log.d("FRAME_TEST", "New frame " + hasImin);
+//                long curTime = System.currentTimeMillis();
+//              //  Log.d("RUNTIME>>", curTime - oldTime + "MS");
+//               // run_logs = run_logs + (curTime - oldTime) + " MS\n ";
+//                Log.d("RUNTIME>>", curTime - oldTime + "MS");
+//                oldTime = curTime;
+//
+////                if (!hasImin) {
+////                    Log.d("FRAME_TEST_i", "Condition true");
+////                    hasImin = true;
+////                    directionMessage();
+////                }
+//            }
+//        });
 
 
         //webRTCClient.setOpenFrontCamera(false);
@@ -287,35 +287,35 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         String tokenId = "tokenId";
         webRTCClient.setVideoRenderers(pipViewRenderer, cameraViewRenderer);
 
-        cameraViewRenderer.getHolder().addCallback(new SurfaceHolder.Callback() {
-            @Override
-            public void surfaceCreated(SurfaceHolder surfaceHolder) {
-                processor.getVideoSurfaceOutput().setSurface(surfaceHolder.getSurface());
-
-            }
-
-            @Override
-            public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int width, int height) {
-
-                // (Re-)Compute the ideal size of the camera-preview display (the area that the
-                // camera-preview frames get rendered onto, potentially with scaling and rotation)
-                // based on the size of the SurfaceView that contains the display.
-               // Size viewSize = new Size(width, height);
-               // Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
-
-                // Connect the converter to the camera-preview frames as its input (via
-                // previewFrameTexture), and configure the output width and height as the computed
-                // display size.
-                converter.setSurfaceTextureAndAttachToGLContext(
-                        previewFrameTexture,width, height);
-
-            }
-
-            @Override
-            public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-                processor.getVideoSurfaceOutput().setSurface(null);
-            }
-        });
+//        cameraViewRenderer.getHolder().addCallback(new SurfaceHolder.Callback() {
+//            @Override
+//            public void surfaceCreated(SurfaceHolder surfaceHolder) {
+//                processor.getVideoSurfaceOutput().setSurface(surfaceHolder.getSurface());
+//
+//            }
+//
+//            @Override
+//            public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int width, int height) {
+//
+//                // (Re-)Compute the ideal size of the camera-preview display (the area that the
+//                // camera-preview frames get rendered onto, potentially with scaling and rotation)
+//                // based on the size of the SurfaceView that contains the display.
+//               // Size viewSize = new Size(width, height);
+//               // Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
+//
+//                // Connect the converter to the camera-preview frames as its input (via
+//                // previewFrameTexture), and configure the output width and height as the computed
+//                // display size.
+//                converter.setSurfaceTextureAndAttachToGLContext(
+//                        previewFrameTexture,width, height);
+//
+//            }
+//
+//            @Override
+//            public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
+//                processor.getVideoSurfaceOutput().setSurface(null);
+//            }
+//        });
 
         cameraViewRenderer.setFrameListioner(new NewFrameListioner() {
             @Override
@@ -333,11 +333,11 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         webRTCClient.setDataChannelObserver(this);
     }
 
-    private void setupPreviewDisplayView() {
-        previewDisplayView.setVisibility(View.GONE);
-        ViewGroup viewGroup = findViewById(R.id.publisher_container);
-        viewGroup.addView(previewDisplayView);
-    }
+//    private void setupPreviewDisplayView() {
+//        previewDisplayView.setVisibility(View.GONE);
+//        ViewGroup viewGroup = findViewById(R.id.publisher_container);
+//        viewGroup.addView(previewDisplayView);
+//    }
 
 
     public void startStreaming(View v) {
