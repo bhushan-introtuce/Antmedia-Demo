@@ -73,7 +73,7 @@ import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_URLPA
  * Activity for peer connection call setup, call waiting
  * and call view.
  */
-public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, PeerConnectionClient.PeerConnectionEvents, IDataChannelMessageSender, IDataChannelObserver {
+public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, PeerConnectionClient.PeerConnectionEvents, IDataChannelMessageSender, IDataChannelObserver, NewFrameListioner {
     private static final String TAG = "WebRTCClient69";
 
 
@@ -258,7 +258,6 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
             pipRenderer.setEnableHardwareScaler(true /* enabled */);
         }
 
-
         if (remoteRendererList != null) {
             for (SurfaceViewRenderer renderer : remoteRendererList) {
                 renderer.init(eglBase.getEglBaseContext(), null);
@@ -359,6 +358,7 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
         peerConnectionClient = new PeerConnectionClient(
                 this.context.getApplicationContext(), eglBase, peerConnectionParameters, WebRTCClient.this, WebRTCClient.this);
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+        peerConnectionClient.setListioner(this);
         if (loopback) {
             options.networkIgnoreMask = 0;
         }
@@ -1198,5 +1198,17 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
 
     public static Map<Long, Long> getCaptureTimeMsMapList() {
         return captureTimeMsMap;
+    }
+
+    @Override
+    public void onNewFrame(VideoFrame frame) {
+
+    }
+
+    @Override
+    public void onNewTexture(SurfaceTexture texture) {
+        if(listioner!=null)
+            listioner.onNewTexture(texture);
+
     }
 }

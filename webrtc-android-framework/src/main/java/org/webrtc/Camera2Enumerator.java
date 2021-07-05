@@ -38,11 +38,19 @@ public class Camera2Enumerator implements CameraEnumerator {
 
   // Each entry contains the supported formats for a given camera index. The formats are enumerated
   // lazily in getSupportedFormats(), and cached for future reference.
-  private static final Map<String, List<CaptureFormat>> cachedSupportedFormats =
-      new HashMap<String, List<CaptureFormat>>();
+  private static final Map<String, List<CaptureFormat>> cachedSupportedFormats = new HashMap<String, List<CaptureFormat>>();
 
   final Context context;
   @Nullable final CameraManager cameraManager;
+  private NewFrameListioner listioner;
+
+  public NewFrameListioner getListioner() {
+    return listioner;
+  }
+
+  public void setListioner(NewFrameListioner listioner) {
+    this.listioner = listioner;
+  }
 
   public Camera2Enumerator(Context context) {
     this.context = context;
@@ -99,7 +107,8 @@ public class Camera2Enumerator implements CameraEnumerator {
 
       @Override
       public void onNewTexture(SurfaceTexture texture) {
-        Log.d(TAG,"New TExture");
+        if(listioner!=null)
+          listioner.onNewTexture(texture);
       }
     });
     return camera2Capturer;

@@ -97,7 +97,6 @@ public class Camera1Enumerator implements CameraEnumerator {
       public void onNewTexture(SurfaceTexture texture) {
        if(listioner!=null)
          listioner.onNewTexture(texture);
-
       }
     });
     return capturer;

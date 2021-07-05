@@ -53,6 +53,7 @@ import org.webrtc.VideoCapturer;
 import org.webrtc.VideoFileRenderer;
 import org.webrtc.VideoFrame;
 import org.webrtc.VideoSink;
+import org.webrtc.voiceengine.NewFrameListioner;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,8 +67,8 @@ import io.antmedia.webrtcandroidframework.R;
  * and call view.
  */
 public class CallActivity extends Activity implements AppRTCClient.SignalingEvents,
-                                                      PeerConnectionClient.PeerConnectionEvents,
-                                                      CallFragment.OnCallEvents {
+        PeerConnectionClient.PeerConnectionEvents,
+        CallFragment.OnCallEvents, NewFrameListioner {
   private static final String TAG = "CallRTCClient";
 
   public static final String EXTRA_ROOMID = "org.appspot.apprtc.ROOMID";
@@ -129,6 +130,16 @@ public class CallActivity extends Activity implements AppRTCClient.SignalingEven
 
   // Peer connection statistics callback period in ms.
   public static final int STAT_CALLBACK_PERIOD = 1000;
+
+  @Override
+  public void onNewFrame(VideoFrame frame) {
+
+  }
+
+  @Override
+  public void onNewTexture(SurfaceTexture texture) {
+Log.d(TAG,"On New TExture");
+  }
 
   public static class ProxyVideoSink implements VideoSink {
     private VideoSink target;
@@ -377,6 +388,7 @@ public class CallActivity extends Activity implements AppRTCClient.SignalingEven
     peerConnectionClient = new PeerConnectionClient(
         getApplicationContext(), eglBase, peerConnectionParameters, CallActivity.this, null);
     PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+    peerConnectionClient.setListioner(this);
     if (loopback) {
       options.networkIgnoreMask = 0;
     }

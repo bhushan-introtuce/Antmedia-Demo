@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -67,12 +68,12 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     /**
      * Change this address with your Ant Media Server address
      */
-    public static final String SERVER_ADDRESS = "192.168.0.4:5080";
+    public static final String SERVER_ADDRESS = "http://172.105.36.192/:5080";
 
     /**
      * Mode can Publish, Play or P2P
      */
-    private String webRTCMode = IWebRTCClient.MODE_PUBLISH;
+    private String webRTCMode = IWebRTCClient.MODE_JOIN;
 
     private boolean enableDataChannel = true;
 
@@ -89,7 +90,6 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     private SurfaceViewRenderer pipViewRenderer;
     private Spinner streamInfoListSpinner;
 
-
     // variables for handling reconnection attempts after disconnected
     final int RECONNECTION_PERIOD_MLS = 100;
     private boolean stoppedStream = false;
@@ -105,10 +105,11 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         }
     };
     private String TAG = "MainActivity";
+    TextureView textureView;
 
     // For Mediapipe Integration
 //    private SurfaceTexture previewFrameTexture;
-//    private SurfaceView previewDisplayView;
+    private SurfaceView previewDisplayView;
 //
 //
 //    private EglManager eglManager;
@@ -163,6 +164,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
         setContentView(R.layout.activity_main);
 
+       // textureView = findViewById(R.id.texture_view);
         cameraViewRenderer = findViewById(R.id.camera_view_renderer);
         pipViewRenderer = findViewById(R.id.pip_view_renderer);
 
@@ -237,7 +239,15 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG,"New TExture");
+                Log.d(TAG,"New Texture in MainActivity ");
+                Log.d(TAG, "Timestamp: "+String.valueOf(texture.getTimestamp()));
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        textureView.setSurfaceTexture(texture);
+//                    }
+//                });
+//                texture.detachFromGLContext();
 //                previewDisplayView.setVisibility(View.VISIBLE);
 //                previewFrameTexture = texture;
             }
@@ -324,7 +334,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             }
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG,"new Texture is Hera");
+                Log.d(TAG,"new Texture in MainActivity");
             }
         });
 

@@ -36,7 +36,6 @@ public class Camera2Capturer extends CameraCapturer {
 
   public Camera2Capturer(Context context, String cameraName, CameraEventsHandler eventsHandler) {
     super(cameraName, eventsHandler, new Camera2Enumerator(context));
-
     this.context = context;
     cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
 
