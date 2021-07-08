@@ -73,6 +73,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     /**
      * Mode can Publish, Play or P2P
      */
+
     private String webRTCMode = IWebRTCClient.MODE_JOIN;
 
     private boolean enableDataChannel = true;
@@ -91,7 +92,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     private Spinner streamInfoListSpinner;
 
     // variables for handling reconnection attempts after disconnected
-    final int RECONNECTION_PERIOD_MLS = 100;
+    final int RECONNECTION_PERIOD_MLS = 1000000;
     private boolean stoppedStream = false;
     Handler reconnectionHandler = new Handler();
     Runnable reconnectionRunnable = new Runnable() {
@@ -114,7 +115,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //
 //    private EglManager eglManager;
 //    private ExternalTextureConverter converter;
-//    private MultiInputFrameProcessor processor;
+//    private MCultiInputFrameProcessor processor;
 //    private static final String BINARY_GRAPH_NAME = "person_segmentation_android_gpu.binarypb";
 //    private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
 //    private static final String BG_VIDEO_INPUT_STREAM = "bg_video";
@@ -239,7 +240,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG,"New Texture in MainActivity ");
+                Log.d(TAG,"New Texture By WebRTC ");
                 Log.d(TAG, "Timestamp: "+String.valueOf(texture.getTimestamp()));
 //                runOnUiThread(new Runnable() {
 //                    @Override
@@ -334,7 +335,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             }
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG,"new Texture in MainActivity");
+                Log.d(TAG,"new Texture by CameraRenderer");
             }
         });
 

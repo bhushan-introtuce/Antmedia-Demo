@@ -230,7 +230,6 @@ public class SurfaceTextureHelper {
         surfaceTexture = new SurfaceTexture(oesTextureId);
         setOnFrameAvailableListener(surfaceTexture, (SurfaceTexture st) -> {
             hasPendingTexture = true;
-
             tryDeliverTextureFrame();
         }, handler);
     }
@@ -400,7 +399,6 @@ public class SurfaceTextureHelper {
         if (frameRefMonitor != null) {
             frameRefMonitor.onNewBuffer(buffer);
         }
-
         final VideoFrame frame = new VideoFrame(buffer, frameRotation, timestampNs);
         listener.onFrame(frame);
         if (listioner != null)

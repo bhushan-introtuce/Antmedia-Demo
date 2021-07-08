@@ -350,6 +350,7 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
                                         boolean useOpenSLES, boolean disableBuiltInAEC, boolean disableBuiltInAGC,
                                         boolean disableBuiltInNS, boolean disableWebRtcAGCAndHPF, boolean enableRtcEventLog,
                                         DataChannelParameters dataChannelParameters, boolean audioCallEnabled) {
+
             this.videoCallEnabled = videoCallEnabled;
             this.loopback = loopback;
             this.tracing = tracing;

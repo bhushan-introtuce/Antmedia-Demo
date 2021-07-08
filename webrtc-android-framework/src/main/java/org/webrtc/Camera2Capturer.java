@@ -12,13 +12,14 @@ package org.webrtc;
 
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraManager;
 import androidx.annotation.Nullable;
 
 import org.webrtc.voiceengine.NewFrameListioner;
 
 @TargetApi(21)
-public class Camera2Capturer extends CameraCapturer {
+public class Camera2Capturer extends CameraCapturer implements NewFrameListioner {
   private final Context context;
   @Nullable private final CameraManager cameraManager;
 
@@ -38,7 +39,6 @@ public class Camera2Capturer extends CameraCapturer {
     super(cameraName, eventsHandler, new Camera2Enumerator(context));
     this.context = context;
     cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-
   }
 
   @Override
@@ -47,6 +47,20 @@ public class Camera2Capturer extends CameraCapturer {
       SurfaceTextureHelper surfaceTextureHelper, String cameraName, int width, int height,
       int framerate) {
     Camera2Session.create(createSessionCallback, events, applicationContext, cameraManager,
-        surfaceTextureHelper, cameraName, width, height, framerate);
+        surfaceTextureHelper, cameraName, width, height, framerate,this);
+  }
+
+  @Override
+  public void onNewFrame(VideoFrame frame) {
+
+  }
+
+  @Override
+  public void onNewTexture(SurfaceTexture texture) {
+    if(listioner!=null)
+    {
+      listioner.onNewTexture(texture);
+    }
+
   }
 }

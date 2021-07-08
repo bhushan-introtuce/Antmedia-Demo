@@ -131,6 +131,16 @@ public class CallActivity extends Activity implements AppRTCClient.SignalingEven
   // Peer connection statistics callback period in ms.
   public static final int STAT_CALLBACK_PERIOD = 1000;
 
+  NewFrameListioner listioner;
+
+  public NewFrameListioner getListioner() {
+    return listioner;
+  }
+
+  public void setListioner(NewFrameListioner listioner) {
+    this.listioner = listioner;
+  }
+
   @Override
   public void onNewFrame(VideoFrame frame) {
 
@@ -138,7 +148,8 @@ public class CallActivity extends Activity implements AppRTCClient.SignalingEven
 
   @Override
   public void onNewTexture(SurfaceTexture texture) {
-Log.d(TAG,"On New TExture");
+    if(listioner!=null)
+      listioner.onNewTexture(texture);
   }
 
   public static class ProxyVideoSink implements VideoSink {
@@ -734,10 +745,14 @@ Log.d(TAG,"On New TExture");
       }
 
       Logging.d(TAG, "Creating capturer using camera2 API.");
-      videoCapturer = createCameraCapturer(new Camera2Enumerator(this));
+      Camera2Enumerator camera2Enumerator =  new Camera2Enumerator(this);
+      camera2Enumerator.setListioner(this);
+      videoCapturer = createCameraCapturer(camera2Enumerator);
     } else {
       Logging.d(TAG, "Creating capturer using camera1 API.");
-      videoCapturer = createCameraCapturer(new Camera1Enumerator(captureToTexture()));
+      Camera1Enumerator camera1Enumerator = new Camera1Enumerator(captureToTexture());
+      camera1Enumerator.setListioner(this);
+      videoCapturer = createCameraCapturer(camera1Enumerator);
     }
     if (videoCapturer == null) {
       reportError("Failed to open camera");
