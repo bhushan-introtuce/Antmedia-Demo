@@ -9,7 +9,6 @@
  */
 
 package org.webrtc;
-
 import android.graphics.SurfaceTexture;
 
 /**
@@ -23,5 +22,5 @@ public interface VideoSink {
    */
   @CalledByNative void onFrame(VideoFrame frame);
 
-  public  void OnTexture(SurfaceTexture texture);
+  @CalledByNative void OnTexture(SurfaceTexture texture);
 }

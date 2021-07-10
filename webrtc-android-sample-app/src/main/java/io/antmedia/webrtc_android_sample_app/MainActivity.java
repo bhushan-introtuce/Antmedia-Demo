@@ -68,7 +68,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     /**
      * Change this address with your Ant Media Server address
      */
-    public static final String SERVER_ADDRESS = "http://172.105.36.192/:5080";
+    public static final String SERVER_ADDRESS = "172.105.36.192:5080";
 
     /**
      * Mode can Publish, Play or P2P
@@ -241,7 +241,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             @Override
             public void onNewTexture(SurfaceTexture texture) {
                 Log.d(TAG,"New Texture By WebRTC ");
-                Log.d(TAG, "Timestamp: "+String.valueOf(texture.getTimestamp()));
+              //  Log.d(TAG, "Timestamp: "+String.valueOf(texture.getTimestamp()));
 //                runOnUiThread(new Runnable() {
 //                    @Override
 //                    public void run() {
@@ -331,11 +331,23 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         cameraViewRenderer.setFrameListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
-              //  Log.d(TAG,"new Frame is Hera");
+                Log.d(TAG,"new Frame by CameraRenderer");
             }
             @Override
             public void onNewTexture(SurfaceTexture texture) {
                 Log.d(TAG,"new Texture by CameraRenderer");
+            }
+        });
+
+        pipViewRenderer.setFrameListioner(new NewFrameListioner() {
+            @Override
+            public void onNewFrame(VideoFrame frame) {
+                Log.d(TAG,"new Frame by pipViewRenderer");
+            }
+
+            @Override
+            public void onNewTexture(SurfaceTexture texture) {
+                Log.d(TAG,"new Texture by pipViewRenderer");
             }
         });
 

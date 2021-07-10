@@ -197,6 +197,7 @@ public class SurfaceViewRenderer extends SurfaceView
 
   @Override
   public void OnTexture(SurfaceTexture texture) {
+    eglRenderer.OnTexture(texture);
     if(listioner!=null)
       listioner.onNewTexture(texture);
   }

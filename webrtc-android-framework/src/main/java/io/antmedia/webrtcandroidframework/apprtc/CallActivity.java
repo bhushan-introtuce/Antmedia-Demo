@@ -161,12 +161,12 @@ public class CallActivity extends Activity implements AppRTCClient.SignalingEven
         Logging.d(TAG, "Dropping frame in proxy because target is null.");
         return;
       }
-
       target.onFrame(frame);
     }
 
     @Override
-    public void OnTexture(SurfaceTexture texture) {
+    synchronized public void OnTexture(SurfaceTexture texture) {
+      target.OnTexture(texture);
 
     }
 

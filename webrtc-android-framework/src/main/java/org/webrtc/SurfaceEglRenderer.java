@@ -10,6 +10,7 @@
 
 package org.webrtc;
 
+import android.graphics.SurfaceTexture;
 import android.view.SurfaceHolder;
 import java.util.concurrent.CountDownLatch;
 
@@ -102,6 +103,11 @@ public class SurfaceEglRenderer extends EglRenderer implements SurfaceHolder.Cal
   public void onFrame(VideoFrame frame) {
     updateFrameDimensionsAndReportEvents(frame);
     super.onFrame(frame);
+  }
+
+  @Override
+  public void OnTexture(SurfaceTexture texture) {
+    super.OnTexture(texture);
   }
 
   // SurfaceHolder.Callback interface.
