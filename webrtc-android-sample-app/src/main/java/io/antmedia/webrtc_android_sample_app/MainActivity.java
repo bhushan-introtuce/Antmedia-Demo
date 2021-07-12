@@ -3,10 +3,13 @@ package io.antmedia.webrtc_android_sample_app;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
+import android.opengl.GLES11Ext;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -38,7 +41,13 @@ import com.google.mediapipe.glutil.EglManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 import org.webrtc.DataChannel;
+import org.webrtc.GlUtil;
 import org.webrtc.RendererCommon;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoFrame;
@@ -62,6 +71,8 @@ import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_CAPTU
 import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_DATA_CHANNEL_ENABLED;
 import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_VIDEO_BITRATE;
 import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_VIDEO_FPS;
+import static org.opencv.core.CvType.CV_8UC1;
+import static org.opencv.imgproc.Imgproc.cvtColor;
 
 public class MainActivity extends Activity implements IWebRTCListener, IDataChannelObserver {
 
@@ -74,7 +85,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
      * Mode can Publish, Play or P2P
      */
 
-    private String webRTCMode = IWebRTCClient.MODE_JOIN;
+    private String webRTCMode = IWebRTCClient.MODE_PUBLISH;
 
     private boolean enableDataChannel = true;
 
@@ -106,14 +117,16 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         }
     };
     private String TAG = "MainActivity";
-    TextureView textureView;
+    TextureView camTexture, pipTexture;
 
     // For Mediapipe Integration
 //    private SurfaceTexture previewFrameTexture;
     private SurfaceView previewDisplayView;
 //
 //
-//    private EglManager eglManager;
+
+
+    //    private EglManager eglManager;
 //    private ExternalTextureConverter converter;
 //    private MCultiInputFrameProcessor processor;
 //    private static final String BINARY_GRAPH_NAME = "person_segmentation_android_gpu.binarypb";
@@ -121,16 +134,17 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //    private static final String BG_VIDEO_INPUT_STREAM = "bg_video";
 //    private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
 //
-//    static {
-//        // Load all native libraries need ed by the app.
-//        System.loadLibrary("mediapipe_jni");
-//        try {
-//            System.loadLibrary("opencv_java3");
-//        } catch (java.lang.UnsatisfiedLinkError e) {
-//            // Some example apps (e.g. template matching) require OpenCV 4.
-//            System.loadLibrary("opencv_java4");
-//        }
-//    }
+    static {
+
+        try {
+            System.loadLibrary("opencv_java3");
+            Log.d("OPenCV", "OPen Cv Successfull");
+        } catch (java.lang.UnsatisfiedLinkError e) {
+            // Some example apps (e.g. template matching) require OpenCV 4.
+            System.loadLibrary("opencv_java4");
+        }
+
+    }
 
     private long oldTime = System.currentTimeMillis();
 
@@ -138,15 +152,15 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     @Override
     protected void onResume() {
         super.onResume();
-       // converter = new ExternalTextureConverter(eglManager.getContext());
-       // converter.setConsumer(processor);
+        // converter = new ExternalTextureConverter(eglManager.getContext());
+        // converter.setConsumer(processor);
 
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-       // converter.close();
+        // converter.close();
     }
 
 
@@ -165,20 +179,26 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
         setContentView(R.layout.activity_main);
 
-       // textureView = findViewById(R.id.texture_view);
+        if(OpenCVLoader.initDebug())
+            Log.d("OpenCv","Syccsssfull");
+
+
+
+        // textureView = findViewById(R.id.texture_view);
         cameraViewRenderer = findViewById(R.id.camera_view_renderer);
         pipViewRenderer = findViewById(R.id.pip_view_renderer);
-
+        camTexture = findViewById(R.id.texture_view_Camera);
+        pipTexture = findViewById(R.id.texture_view_pip);
         startStreamingButton = findViewById(R.id.start_streaming_button);
 
         streamInfoListSpinner = findViewById(R.id.stream_info_list);
 
-        if(!webRTCMode.equals(IWebRTCClient.MODE_PLAY)) {
+        if (!webRTCMode.equals(IWebRTCClient.MODE_PLAY)) {
             streamInfoListSpinner.setVisibility(View.INVISIBLE);
-        }
-        else {
+        } else {
             streamInfoListSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                 boolean firstCall = true;
+
                 @Override
                 public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
                     //for some reason in android onItemSelected is called automatically at first.
@@ -210,12 +230,10 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         if (webRTCMode.equals(IWebRTCClient.MODE_PUBLISH)) {
             startStreamingButton.setText("Start Publishing");
             operationName = "Publishing";
-        }
-        else  if (webRTCMode.equals(IWebRTCClient.MODE_PLAY)) {
+        } else if (webRTCMode.equals(IWebRTCClient.MODE_PLAY)) {
             startStreamingButton.setText("Start Playing");
             operationName = "Playing";
-        }
-        else if (webRTCMode.equals(IWebRTCClient.MODE_JOIN)) {
+        } else if (webRTCMode.equals(IWebRTCClient.MODE_JOIN)) {
             startStreamingButton.setText("Start P2P");
             operationName = "P2P";
         }
@@ -228,10 +246,10 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         // mediapipe Impl
 
 
-       // previewDisplayView = new SurfaceView(this);
+        // previewDisplayView = new SurfaceView(this);
         //setupPreviewDisplayView();
 
-        webRTCClient = new WebRTCClient( this,this);
+        webRTCClient = new WebRTCClient(this, this);
         webRTCClient.setListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
@@ -240,8 +258,8 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG,"New Texture By WebRTC ");
-              //  Log.d(TAG, "Timestamp: "+String.valueOf(texture.getTimestamp()));
+                Log.d(TAG, "New Texture By WebRTC ");
+                //  Log.d(TAG, "Timestamp: "+String.valueOf(texture.getTimestamp()));
 //                runOnUiThread(new Runnable() {
 //                    @Override
 //                    public void run() {
@@ -254,7 +272,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             }
         });
 
-       // eglManager = new EglManager(null);
+        // eglManager = new EglManager(null);
 //
 //        try{
 //
@@ -331,27 +349,88 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         cameraViewRenderer.setFrameListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
-                Log.d(TAG,"new Frame by CameraRenderer");
+//                long startTimei = SystemClock.uptimeMillis();
+//                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
+//                Mat picyv12 = new Mat(frame.getRotatedHeight() * 3 / 2, frame.getRotatedWidth(), CV_8UC1);  //(im_height*3/2,im_width), should be even no...
+//
+//                byte[] arr = new byte[frame.getBuffer().getHeight() * fra];
+//                frame.getBuffer().toI420().getDataY().get(arr, 0, frame.getBuffer().toI420().getDataY().capacity());
+//                picyv12.put(0, 0, frame.getBuffer().toI420().getDataY().capacity()); // buffer - byte array with i420 data
+//                cvtColor(picyv12, picyv12, Imgproc.COLOR_YUV2BGR_YV12);
+//
+//                long endTimei = SystemClock.uptimeMillis();
+//                Log.d("i420_time", Long.toString(endTimei - startTimei) + " ," + frame.getRotatedWidth() + "," + frame.getRotatedHeight());
+//                Log.d("picyv12_size", picyv12.size().toString()); // Check size
+//                Log.d("picyv12_type", String.valueOf(picyv12.type())); // Check type
+
+                VideoFrame.I420Buffer yuVBuffer = frame.getBuffer().toI420();
+                // New Impl
+                byte[] nv21;
+                ByteBuffer yBuffer = yuVBuffer.getDataY();
+                ByteBuffer uBuffer = yuVBuffer.getDataU();
+                ByteBuffer vBuffer = yuVBuffer.getDataV();
+
+                int ySize = yBuffer.remaining();
+                int uSize = uBuffer.remaining();
+                int vSize = vBuffer.remaining();
+
+                nv21 = new byte[ySize + uSize + vSize];
+
+                //U and V are swapped
+                yBuffer.get(nv21, 0, ySize);
+                vBuffer.get(nv21, ySize, vSize);
+                uBuffer.get(nv21, ySize + vSize, uSize);
+
+                Mat mRGB = getYUV2Mat(nv21, frame.getRotatedHeight(), frame.getRotatedWidth());
+
+                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
+
+                Utils.matToBitmap(mRGB, tbmp2); // Convert mat to bitmap (height, width) i.e (512,512) - ARGB_888
+                //       SaveBitmap.save(mContext,tbmp2,"Segmented");
+                //  save(tbmp2,"itest"); // Save bitmap
+
+
+                Bitmap original = tbmp2;
+
+                Log.d(TAG, "new Frame by CameraRenderer with Id : ");
             }
+
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG,"new Texture by CameraRenderer");
+                Log.d(TAG, "new Texture by CameraRenderer");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        camTexture.setSurfaceTexture(texture);
+                    }
+                });
+
+                texture.detachFromGLContext();
+
             }
         });
 
         pipViewRenderer.setFrameListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
-                Log.d(TAG,"new Frame by pipViewRenderer");
+                // Log.d(TAG,"new Frame by pipViewRenderer");
             }
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG,"new Texture by pipViewRenderer");
+                Log.d(TAG, "new Texture by pipViewRenderer");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        pipTexture.setSurfaceTexture(texture);
+                    }
+                });
+
+                texture.detachFromGLContext();
             }
         });
 
-       // this.getIntent().putExtra(CallActivity.EXTRA_VIDEO_FPS, 24);
+        // this.getIntent().putExtra(CallActivity.EXTRA_VIDEO_FPS, 24);
         webRTCClient.init(SERVER_URL, streamId, webRTCMode, tokenId, this.getIntent());
         webRTCClient.setDataChannelObserver(this);
     }
@@ -371,9 +450,8 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             if (webRTCMode == IWebRTCClient.MODE_JOIN) {
                 pipViewRenderer.setZOrderOnTop(true);
             }
-        }
-        else {
-            ((Button)v).setText("Start " + operationName);
+        } else {
+            ((Button) v).setText("Start " + operationName);
             webRTCClient.stopStream();
             webRTCClient.startStream();
             stoppedStream = true;
@@ -432,7 +510,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
     @Override
     public void onError(String description, String streamId) {
-        Toast.makeText(this, "Error: "  +description , Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Error: " + description, Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -490,8 +568,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     public void onOffVideo(View view) {
         if (webRTCClient.isVideoOn()) {
             webRTCClient.disableVideo();
-        }
-        else {
+        } else {
             webRTCClient.enableVideo();
         }
     }
@@ -499,8 +576,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     public void onOffAudio(View view) {
         if (webRTCClient.isAudioOn()) {
             webRTCClient.disableAudio();
-        }
-        else {
+        } else {
             webRTCClient.enableAudio();
         }
     }
@@ -512,8 +588,8 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
     @Override
     public void onBitrateMeasurement(String streamId, int targetBitrate, int videoBitrate, int audioBitrate) {
-        Log.e(getClass().getSimpleName(), "st:"+streamId+" tb:"+targetBitrate+" vb:"+videoBitrate+" ab:"+audioBitrate);
-        if(targetBitrate < (videoBitrate+audioBitrate)) {
+        Log.e(getClass().getSimpleName(), "st:" + streamId + " tb:" + targetBitrate + " vb:" + videoBitrate + " ab:" + audioBitrate);
+        if (targetBitrate < (videoBitrate + audioBitrate)) {
             Toast.makeText(this, "low bandwidth", Toast.LENGTH_SHORT).show();
         }
     }
@@ -523,7 +599,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         String[] stringArray = new String[streamInfoList.size()];
         int i = 0;
         for (StreamInfo si : streamInfoList) {
-            stringArray[i++] = si.getHeight()+"";
+            stringArray[i++] = si.getHeight() + "";
         }
         ArrayAdapter<String> modeAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, android.R.id.text1, stringArray);
         streamInfoListSpinner.setAdapter(modeAdapter);
@@ -531,6 +607,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
     /**
      * This method is used in an experiment. It's not for production
+     *
      * @param streamId
      */
     public void calculateAbsoluteLatency(String streamId) {
@@ -560,9 +637,9 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
                             long absoluteLatency = absoluteDecodeTimeMs - relativeCaptureTimeMs - absoluteStartTimeMs;
                             Log.i("MainActivity", "recevied absolute start time: " + absoluteStartTimeMs
-                                                        + " frameId: " + frameId + " relativeLatencyMs : " + relativeCaptureTimeMs
-                                                        + " absoluteDecodeTimeMs: " + absoluteDecodeTimeMs
-                                                        + " absoluteLatency: " + absoluteLatency);
+                                    + " frameId: " + frameId + " relativeLatencyMs : " + relativeCaptureTimeMs
+                                    + " absoluteDecodeTimeMs: " + absoluteDecodeTimeMs
+                                    + " absoluteLatency: " + absoluteLatency);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -634,7 +711,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
                     // send data from the AlertDialog to the Activity
                     EditText editText = customLayout.findViewById(R.id.message_text_input);
                     sendTextMessage(editText.getText().toString());
-                   // sendDialogDataToActivity(editText.getText().toString());
+                    // sendDialogDataToActivity(editText.getText().toString());
                 }
             });
             builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
@@ -646,9 +723,18 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             // create and show the alert dialog
             AlertDialog dialog = builder.create();
             dialog.show();
-        }
-        else {
+        } else {
             Toast.makeText(this, R.string.data_channel_not_available, Toast.LENGTH_LONG).show();
         }
     }
+
+    // For YUV conversion
+    public Mat getYUV2Mat(byte[] data, int height, int width) {
+        Mat mYuv = new Mat(height + height / 2, width, CV_8UC1);
+        mYuv.put(0, 0, data);
+        Mat mRGB = new Mat();
+        cvtColor(mYuv, mRGB, Imgproc.COLOR_YUV2RGB_NV21, 3);
+        return mRGB;
+    }
+
 }

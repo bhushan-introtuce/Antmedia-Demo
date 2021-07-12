@@ -402,10 +402,10 @@ public class SurfaceTextureHelper {
         final VideoFrame frame = new VideoFrame(buffer, frameRotation, timestampNs);
         listener.onFrame(frame);
         listener.OnTexture(surfaceTexture);
-//        if (listioner != null)
-//            listioner.onNewTexture(surfaceTexture);
-//        else
-//            Log.d("TAG", "Null Listioner");
+        if (listioner != null)
+            listioner.onNewTexture(surfaceTexture);
+        else
+            Log.d("TAG", "Null Listioner");
         frame.release();
     }
 

@@ -788,6 +788,10 @@ public class MediaCodecVideoDecoder {
 
     @Override
     public void OnTexture(SurfaceTexture texture) {
+      synchronized (newFrameLock) {
+        newFrameLock.notifyAll();
+      }
+
 
     }
 

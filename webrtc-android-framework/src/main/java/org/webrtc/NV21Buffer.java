@@ -64,6 +64,7 @@ public class NV21Buffer implements VideoFrame.Buffer {
     return newBuffer;
   }
 
+
   private static native void nativeCropAndScale(int cropX, int cropY, int cropWidth, int cropHeight,
       int scaleWidth, int scaleHeight, byte[] src, int srcWidth, int srcHeight, ByteBuffer dstY,
       int dstStrideY, ByteBuffer dstU, int dstStrideU, ByteBuffer dstV, int dstStrideV);
