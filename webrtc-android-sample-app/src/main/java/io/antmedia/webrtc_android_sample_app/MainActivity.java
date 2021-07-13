@@ -4,7 +4,11 @@ import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.graphics.YuvImage;
 import android.opengl.GLES11Ext;
 import android.os.Build;
 import android.os.Bundle;
@@ -53,6 +57,7 @@ import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoFrame;
 import org.webrtc.voiceengine.NewFrameListioner;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -85,7 +90,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
      * Mode can Publish, Play or P2P
      */
 
-    private String webRTCMode = IWebRTCClient.MODE_PUBLISH;
+    private String webRTCMode = IWebRTCClient.MODE_JOIN;
 
     private boolean enableDataChannel = true;
 
@@ -134,17 +139,17 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //    private static final String BG_VIDEO_INPUT_STREAM = "bg_video";
 //    private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
 //
-    static {
-
-        try {
-            System.loadLibrary("opencv_java3");
-            Log.d("OPenCV", "OPen Cv Successfull");
-        } catch (java.lang.UnsatisfiedLinkError e) {
-            // Some example apps (e.g. template matching) require OpenCV 4.
-            System.loadLibrary("opencv_java4");
-        }
-
-    }
+//    static {
+//
+//        try {
+//            System.loadLibrary("opencv_java3");
+//            Log.d("OPenCV", "OPen Cv Successfull");
+//        } catch (java.lang.UnsatisfiedLinkError e) {
+//            // Some example apps (e.g. template matching) require OpenCV 4.
+//            System.loadLibrary("opencv_java4");
+//        }
+//
+//    }
 
     private long oldTime = System.currentTimeMillis();
 
@@ -179,9 +184,8 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
         setContentView(R.layout.activity_main);
 
-        if(OpenCVLoader.initDebug())
-            Log.d("OpenCv","Syccsssfull");
-
+        if (OpenCVLoader.initDebug())
+            Log.d("OpenCv", "Syccsssfull");
 
 
         // textureView = findViewById(R.id.texture_view);
@@ -259,14 +263,14 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             @Override
             public void onNewTexture(SurfaceTexture texture) {
                 Log.d(TAG, "New Texture By WebRTC ");
-                //  Log.d(TAG, "Timestamp: "+String.valueOf(texture.getTimestamp()));
+//                Log.d(TAG, "Timestamp: " + String.valueOf(texture.getTimestamp()));
 //                runOnUiThread(new Runnable() {
 //                    @Override
 //                    public void run() {
-//                        textureView.setSurfaceTexture(texture);
+//                        camTexture.setSurfaceTexture(texture);
 //                    }
 //                });
-//                texture.detachFromGLContext();
+                // texture.detachFromGLContext();
 //                previewDisplayView.setVisibility(View.VISIBLE);
 //                previewFrameTexture = texture;
             }
@@ -349,6 +353,53 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         cameraViewRenderer.setFrameListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
+
+//                VideoFrame.I420Buffer mainBuffer = frame.getBuffer().toI420();
+//                // YUV merging
+//                int Yb = mainBuffer.getDataY().remaining();
+//                int Ub = mainBuffer.getDataU().remaining();
+//                int Vb = mainBuffer.getDataV().remaining();
+//
+//                byte[] data = new byte[Yb + Ub + Vb];
+//
+//                mainBuffer.getDataY().get(data, 0, Yb);
+//                mainBuffer.getDataU().get(data, Yb, Ub);
+//                mainBuffer.getDataV().get(data, Yb + Ub, Vb);
+//
+//
+//                ByteArrayOutputStream out = new ByteArrayOutputStream();
+//                int[] strides = new int[2];
+//                strides[0] = mainBuffer.getStrideY();
+//                strides[1] = mainBuffer.getStrideU();
+//                strides[2] = mainBuffer.getStrideV();
+//
+//                YuvImage yuvImage = new YuvImage(data, ImageFormat.NV21, frame.getRotatedWidth(), frame.getRotatedHeight(), strides);
+//                yuvImage.compressToJpeg(new Rect(0, 0, frame.getRotatedWidth(), frame.getRotatedHeight()), 100, out);
+//                byte[] imageBytes = out.toByteArray();
+//                Bitmap image = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+//                //iv.setImageBitmap(image);
+
+                Log.d(TAG, "new Frame by CameraRenderer with Id : ");
+
+                /* o
+
+                Other Solution to Merge All them
+                    Image.Plane Y = image.getPlanes()[0];
+    Image.Plane U = image.getPlanes()[1];
+    Image.Plane V = image.getPlanes()[2];
+
+    int Yb = Y.getBuffer().remaining();
+    int Ub = U.getBuffer().remaining();
+    int Vb = V.getBuffer().remaining();
+
+    byte[] data = new byte[Yb + Ub + Vb];
+
+    Y.getBuffer().get(data, 0, Yb);
+    U.getBuffer().get(data, Yb, Ub);
+    V.getBuffer().get(data, Yb+ Ub, Vb);
+
+                 */
+
 //                long startTimei = SystemClock.uptimeMillis();
 //                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
 //                Mat picyv12 = new Mat(frame.getRotatedHeight() * 3 / 2, frame.getRotatedWidth(), CV_8UC1);  //(im_height*3/2,im_width), should be even no...
@@ -357,55 +408,54 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //                frame.getBuffer().toI420().getDataY().get(arr, 0, frame.getBuffer().toI420().getDataY().capacity());
 //                picyv12.put(0, 0, frame.getBuffer().toI420().getDataY().capacity()); // buffer - byte array with i420 data
 //                cvtColor(picyv12, picyv12, Imgproc.COLOR_YUV2BGR_YV12);
-//
 //                long endTimei = SystemClock.uptimeMillis();
 //                Log.d("i420_time", Long.toString(endTimei - startTimei) + " ," + frame.getRotatedWidth() + "," + frame.getRotatedHeight());
 //                Log.d("picyv12_size", picyv12.size().toString()); // Check size
 //                Log.d("picyv12_type", String.valueOf(picyv12.type())); // Check type
 
-                VideoFrame.I420Buffer yuVBuffer = frame.getBuffer().toI420();
-                // New Impl
-                byte[] nv21;
-                ByteBuffer yBuffer = yuVBuffer.getDataY();
-                ByteBuffer uBuffer = yuVBuffer.getDataU();
-                ByteBuffer vBuffer = yuVBuffer.getDataV();
+//                VideoFrame.I420Buffer yuVBuffer = frame.getBuffer().toI420();
+//                // New Impl
+//                byte[] nv21;
+//                ByteBuffer yBuffer = yuVBuffer.getDataY();
+//                ByteBuffer uBuffer = yuVBuffer.getDataU();
+//                ByteBuffer vBuffer = yuVBuffer.getDataV();
+//
+//                int ySize = yBuffer.remaining();
+//                int uSize = uBuffer.remaining();
+//                int vSize = vBuffer.remaining();
+//
+//                nv21 = new byte[ySize + uSize + vSize];
+//
+//                //U and V are swapped
+//                yBuffer.get(nv21, 0, ySize);
+//                vBuffer.get(nv21, ySize, vSize);
+//                uBuffer.get(nv21, ySize + vSize, uSize);
+//
+//                Mat mRGB = getYUV2Mat(nv21, frame.getRotatedHeight(), frame.getRotatedWidth());
+//
+//                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
+//
+//                Utils.matToBitmap(mRGB, tbmp2); // Convert mat to bitmap (height, width) i.e (512,512) - ARGB_888
+//                //       SaveBitmap.save(mContext,tbmp2,"Segmented");
+//                //  save(tbmp2,"itest"); // Save bitmap
 
-                int ySize = yBuffer.remaining();
-                int uSize = uBuffer.remaining();
-                int vSize = vBuffer.remaining();
-
-                nv21 = new byte[ySize + uSize + vSize];
-
-                //U and V are swapped
-                yBuffer.get(nv21, 0, ySize);
-                vBuffer.get(nv21, ySize, vSize);
-                uBuffer.get(nv21, ySize + vSize, uSize);
-
-                Mat mRGB = getYUV2Mat(nv21, frame.getRotatedHeight(), frame.getRotatedWidth());
-
-                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
-
-                Utils.matToBitmap(mRGB, tbmp2); // Convert mat to bitmap (height, width) i.e (512,512) - ARGB_888
-                //       SaveBitmap.save(mContext,tbmp2,"Segmented");
-                //  save(tbmp2,"itest"); // Save bitmap
-
-
-                Bitmap original = tbmp2;
-
-                Log.d(TAG, "new Frame by CameraRenderer with Id : ");
+//
+//                Bitmap original = tbmp2;
+//
+//              //  Log.d(TAG, "new Frame by CameraRenderer with Id : ");
             }
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG, "new Texture by CameraRenderer");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        camTexture.setSurfaceTexture(texture);
-                    }
-                });
-
-                texture.detachFromGLContext();
+//                Log.d(TAG, "new Texture by CameraRenderer");
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        camTexture.setSurfaceTexture(texture);
+//                    }
+//                });
+//
+//                texture.detachFromGLContext();
 
             }
         });
@@ -418,15 +468,15 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG, "new Texture by pipViewRenderer");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        pipTexture.setSurfaceTexture(texture);
-                    }
-                });
-
-                texture.detachFromGLContext();
+//                Log.d(TAG, "new Texture by pipViewRenderer");
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        pipTexture.setSurfaceTexture(texture);
+//                    }
+//                });
+//
+//                texture.detachFromGLContext();
             }
         });
 

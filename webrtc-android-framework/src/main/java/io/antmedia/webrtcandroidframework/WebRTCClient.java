@@ -353,10 +353,20 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
                 }
             }, runTimeMs);
         }
-
         // Create peer connection client.
         peerConnectionClient = new PeerConnectionClient(
-                this.context.getApplicationContext(), eglBase, peerConnectionParameters, WebRTCClient.this, WebRTCClient.this);
+                this.context.getApplicationContext(), eglBase, peerConnectionParameters, WebRTCClient.this, WebRTCClient.this, new NewFrameListioner() {
+            @Override
+            public void onNewFrame(VideoFrame frame) {
+
+            }
+
+            @Override
+            public void onNewTexture(SurfaceTexture texture) {
+                Log.d(TAG, "New Texture iN Web Client By peer Connection");
+            }
+        });
+
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
         peerConnectionClient.setListioner(this);
         if (loopback) {
@@ -778,8 +788,8 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
 
                 @Override
                 public void onNewTexture(SurfaceTexture texture) {
-                   if(listioner!=null)
-                       listioner.onNewTexture(texture);
+                    if (listioner != null)
+                        listioner.onNewTexture(texture);
                 }
             });
             videoCapturer = createCameraCapturer(camera1Enumerator);
@@ -1202,13 +1212,12 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
 
     @Override
     public void onNewFrame(VideoFrame frame) {
-
     }
 
     @Override
     public void onNewTexture(SurfaceTexture texture) {
-        if(listioner!=null)
+        // Gettting Network Frame from Peer Connection Client here
+        if (listioner != null)
             listioner.onNewTexture(texture);
-
     }
 }

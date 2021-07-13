@@ -12,6 +12,7 @@ package io.antmedia.webrtcandroidframework.apprtc;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.nfc.Tag;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
@@ -88,7 +89,6 @@ import io.antmedia.webrtcandroidframework.IDataChannelObserver;
  * All PeerConnectionEvents callbacks are invoked from the same looper thread.
  * This class is a singleton.
  */
-
 
 
 public class PeerConnectionClient implements IDataChannelMessageSender, NewFrameListioner {
@@ -282,8 +282,7 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
 
     @Override
     public void onNewTexture(SurfaceTexture texture) {
-        if(listioner!=null)
-        {
+        if (listioner != null) {
             listioner.onNewTexture(texture);
         }
     }
@@ -441,13 +440,14 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
      * ownership of |eglBase|.
      */
     public PeerConnectionClient(Context appContext, EglBase eglBase,
-                                PeerConnectionParameters peerConnectionParameters, PeerConnectionEvents events, IDataChannelObserver dataChannelObserver) {
+                                PeerConnectionParameters peerConnectionParameters, PeerConnectionEvents events, IDataChannelObserver dataChannelObserver,NewFrameListioner newFrameListioner) {
         this.rootEglBase = eglBase;
         this.appContext = appContext;
         this.events = events;
         this.peerConnectionParameters = peerConnectionParameters;
         this.dataChannelEnabled = peerConnectionParameters.dataChannelParameters != null;
         this.dataChannelObserver = dataChannelObserver;
+        this.listioner = newFrameListioner;
 
         Log.d(TAG, "Preferred video codec: " + getSdpVideoCodecName(peerConnectionParameters));
 
@@ -555,10 +555,27 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
         final VideoEncoderFactory encoderFactory;
         final VideoDecoderFactory decoderFactory;
 
+        // Making listioner
+        NewFrameListioner listioner1 = new NewFrameListioner() {
+            @Override
+            public void onNewFrame(VideoFrame frame) {
+
+            }
+
+            @Override
+            public void onNewTexture(SurfaceTexture texture) {
+                if(listioner!=null)
+                    listioner.onNewTexture(texture);
+                Log.d(TAG, "NewTexture In Per Connection");
+            }
+        };
+
         if (peerConnectionParameters.videoCodecHwAcceleration) {
             encoderFactory = new DefaultVideoEncoderFactory(
                     rootEglBase.getEglBaseContext(), true /* enableIntelVp8Encoder */, enableH264HighProfile);
-            decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
+            decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext(),listioner1);
+
+
         } else {
             encoderFactory = new SoftwareVideoEncoderFactory();
             decoderFactory = new SoftwareVideoDecoderFactory();

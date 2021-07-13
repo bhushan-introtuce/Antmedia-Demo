@@ -10,7 +10,13 @@
 
 package org.webrtc;
 
+import android.graphics.SurfaceTexture;
+import android.util.Log;
+
 import androidx.annotation.Nullable;
+
+import org.webrtc.voiceengine.NewFrameListioner;
+
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,52 +25,92 @@ import java.util.List;
  * Helper class that combines HW and SW decoders.
  */
 public class DefaultVideoDecoderFactory implements VideoDecoderFactory {
-  private final VideoDecoderFactory hardwareVideoDecoderFactory;
-  private final VideoDecoderFactory softwareVideoDecoderFactory = new SoftwareVideoDecoderFactory();
-  private final @Nullable VideoDecoderFactory platformSoftwareVideoDecoderFactory;
+    private final VideoDecoderFactory hardwareVideoDecoderFactory;
+    private final VideoDecoderFactory softwareVideoDecoderFactory = new SoftwareVideoDecoderFactory();
+    private final @Nullable
+    VideoDecoderFactory platformSoftwareVideoDecoderFactory;
 
-  /**
-   * Create decoder factory using default hardware decoder factory.
-   */
-  public DefaultVideoDecoderFactory(@Nullable EglBase.Context eglContext) {
-    this.hardwareVideoDecoderFactory = new HardwareVideoDecoderFactory(eglContext);
-    this.platformSoftwareVideoDecoderFactory = new PlatformSoftwareVideoDecoderFactory(eglContext);
-  }
+    NewFrameListioner listioner;
 
-  /**
-   * Create decoder factory using explicit hardware decoder factory.
-   */
-  DefaultVideoDecoderFactory(VideoDecoderFactory hardwareVideoDecoderFactory) {
-    this.hardwareVideoDecoderFactory = hardwareVideoDecoderFactory;
-    this.platformSoftwareVideoDecoderFactory = null;
-  }
+    private String TAG = "DefaultVideoDecoderFactory";
 
-  @Override
-  public @Nullable VideoDecoder createDecoder(VideoCodecInfo codecType) {
-    VideoDecoder softwareDecoder = softwareVideoDecoderFactory.createDecoder(codecType);
-    final VideoDecoder hardwareDecoder = hardwareVideoDecoderFactory.createDecoder(codecType);
-    if (softwareDecoder == null && platformSoftwareVideoDecoderFactory != null) {
-      softwareDecoder = platformSoftwareVideoDecoderFactory.createDecoder(codecType);
-    }
-    if (hardwareDecoder != null && softwareDecoder != null) {
-      // Both hardware and software supported, wrap it in a software fallback
-      return new VideoDecoderFallback(
-          /* fallback= */ softwareDecoder, /* primary= */ hardwareDecoder);
-    }
-    return hardwareDecoder != null ? hardwareDecoder : softwareDecoder;
-  }
-
-  @Override
-  public VideoCodecInfo[] getSupportedCodecs() {
-    LinkedHashSet<VideoCodecInfo> supportedCodecInfos = new LinkedHashSet<VideoCodecInfo>();
-
-    supportedCodecInfos.addAll(Arrays.asList(softwareVideoDecoderFactory.getSupportedCodecs()));
-    supportedCodecInfos.addAll(Arrays.asList(hardwareVideoDecoderFactory.getSupportedCodecs()));
-    if (platformSoftwareVideoDecoderFactory != null) {
-      supportedCodecInfos.addAll(
-          Arrays.asList(platformSoftwareVideoDecoderFactory.getSupportedCodecs()));
+    public NewFrameListioner getListioner() {
+        return listioner;
     }
 
-    return supportedCodecInfos.toArray(new VideoCodecInfo[supportedCodecInfos.size()]);
-  }
+    public void setListioner(NewFrameListioner listioner) {
+        this.listioner = listioner;
+    }
+
+    /**
+     * Create decoder factory using default hardware decoder factory.
+     */
+    public DefaultVideoDecoderFactory(@Nullable EglBase.Context eglContext, NewFrameListioner listioner) {
+        this.hardwareVideoDecoderFactory = new HardwareVideoDecoderFactory(eglContext, new NewFrameListioner() {
+            @Override
+            public void onNewFrame(VideoFrame frame) {
+
+            }
+
+            @Override
+            public void onNewTexture(SurfaceTexture texture) {
+                if(listioner!=null)
+                    listioner.onNewTexture(texture);
+                Log.d(TAG, "Texture From Hardeare ");
+
+            }
+        });
+        this.platformSoftwareVideoDecoderFactory = new PlatformSoftwareVideoDecoderFactory(eglContext, new NewFrameListioner() {
+            @Override
+            public void onNewFrame(VideoFrame frame) {
+
+            }
+
+            @Override
+            public void onNewTexture(SurfaceTexture texture) {
+                Log.d(TAG, "Texture From Software ");
+                if(listioner!=null)
+                    listioner.onNewTexture(texture);
+            }
+        });
+        this.listioner = listioner;
+    }
+
+    /**
+     * Create decoder factory using explicit hardware decoder factory.
+     */
+    DefaultVideoDecoderFactory(VideoDecoderFactory hardwareVideoDecoderFactory) {
+        this.hardwareVideoDecoderFactory = hardwareVideoDecoderFactory;
+        this.platformSoftwareVideoDecoderFactory = null;
+    }
+
+    @Override
+    public @Nullable
+    VideoDecoder createDecoder(VideoCodecInfo codecType) {
+        VideoDecoder softwareDecoder = softwareVideoDecoderFactory.createDecoder(codecType);
+        final VideoDecoder hardwareDecoder = hardwareVideoDecoderFactory.createDecoder(codecType);
+        if (softwareDecoder == null && platformSoftwareVideoDecoderFactory != null) {
+            softwareDecoder = platformSoftwareVideoDecoderFactory.createDecoder(codecType);
+        }
+        if (hardwareDecoder != null && softwareDecoder != null) {
+            // Both hardware and software supported, wrap it in a software fallback
+            return new VideoDecoderFallback(
+                    /* fallback= */ softwareDecoder, /* primary= */ hardwareDecoder);
+        }
+        return hardwareDecoder != null ? hardwareDecoder : softwareDecoder;
+    }
+
+    @Override
+    public VideoCodecInfo[] getSupportedCodecs() {
+        LinkedHashSet<VideoCodecInfo> supportedCodecInfos = new LinkedHashSet<VideoCodecInfo>();
+
+        supportedCodecInfos.addAll(Arrays.asList(softwareVideoDecoderFactory.getSupportedCodecs()));
+        supportedCodecInfos.addAll(Arrays.asList(hardwareVideoDecoderFactory.getSupportedCodecs()));
+        if (platformSoftwareVideoDecoderFactory != null) {
+            supportedCodecInfos.addAll(
+                    Arrays.asList(platformSoftwareVideoDecoderFactory.getSupportedCodecs()));
+        }
+
+        return supportedCodecInfos.toArray(new VideoCodecInfo[supportedCodecInfos.size()]);
+    }
 }
