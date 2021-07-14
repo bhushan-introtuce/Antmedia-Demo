@@ -28,6 +28,7 @@ import org.webrtc.EglBase.Context;
 import org.webrtc.TextureBufferImpl.RefCountMonitor;
 import org.webrtc.VideoFrame.TextureBuffer;
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 /**
  * Helper class for using a SurfaceTexture to create WebRTC VideoFrames. In order to create WebRTC
@@ -64,7 +65,18 @@ public class SurfaceTextureHelper {
     }
 
     private static final String TAG = "SurfaceTextureHelper";
+
+
     NewFrameListioner listioner;
+    NewNetworkTextureListioner networkTextureListioner;
+
+    public NewNetworkTextureListioner getNetworkTextureListioner() {
+        return networkTextureListioner;
+    }
+
+    public void setNetworkTextureListioner(NewNetworkTextureListioner networkTextureListioner) {
+        this.networkTextureListioner = networkTextureListioner;
+    }
 
     public NewFrameListioner getListioner() {
         return listioner;
@@ -406,6 +418,7 @@ public class SurfaceTextureHelper {
             listioner.onNewTexture(surfaceTexture);
         else
             Log.d("TAG", "Null Listioner");
+        //  surfaceTexture.detachFromGLContext();
         frame.release();
     }
 

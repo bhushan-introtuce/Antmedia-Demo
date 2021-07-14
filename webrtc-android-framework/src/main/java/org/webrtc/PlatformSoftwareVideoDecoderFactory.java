@@ -15,6 +15,7 @@ import android.media.MediaCodecInfo;
 import androidx.annotation.Nullable;
 
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 import java.util.Arrays;
 
@@ -49,7 +50,7 @@ public class PlatformSoftwareVideoDecoderFactory extends MediaCodecVideoDecoderF
      * @param sharedContext The textures generated will be accessible from this context. May be null,
      *                      this disables texture support.
      */
-    public PlatformSoftwareVideoDecoderFactory(@Nullable EglBase.Context sharedContext, NewFrameListioner newFrameListioner) {
-        super(sharedContext, defaultAllowedPredicate, newFrameListioner);
+    public PlatformSoftwareVideoDecoderFactory(@Nullable EglBase.Context sharedContext, NewNetworkTextureListioner newNetworkTextureListioner) {
+        super(sharedContext, defaultAllowedPredicate, newNetworkTextureListioner);
     }
 }

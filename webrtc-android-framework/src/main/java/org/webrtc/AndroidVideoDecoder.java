@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.webrtc.ThreadUtils.ThreadChecker;
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 import io.antmedia.webrtcandroidframework.WebRTCClient;
 
@@ -123,16 +124,19 @@ class AndroidVideoDecoder implements VideoDecoder, VideoSink {
     @Nullable
     private Surface surface;
 
-    // Adding Listioner
+    /*
+@Bhushan (Introtuce)
+14-072-2021
+Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
+ */
 
-    NewFrameListioner listioner;
+    NewNetworkTextureListioner listioner;
 
-
-    public NewFrameListioner getListioner() {
+    public NewNetworkTextureListioner getListioner() {
         return listioner;
     }
 
-    public void setListioner(NewFrameListioner listioner) {
+    public void setListioner(NewNetworkTextureListioner listioner) {
         this.listioner = listioner;
     }
 
@@ -193,10 +197,8 @@ class AndroidVideoDecoder implements VideoDecoder, VideoSink {
 
                 @Override
                 public void onNewTexture(SurfaceTexture texture) {
-                    Log.d(TAG, "New TExture In Android Video Decodee");
-
                     if (listioner != null)
-                        listioner.onNewTexture(texture);
+                        listioner.onNewNetworkTexture(texture);
                 }
             });
             surface = new Surface(surfaceTextureHelper.getSurfaceTexture());

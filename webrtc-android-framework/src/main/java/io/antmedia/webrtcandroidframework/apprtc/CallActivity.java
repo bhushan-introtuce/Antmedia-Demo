@@ -54,6 +54,7 @@ import org.webrtc.VideoFileRenderer;
 import org.webrtc.VideoFrame;
 import org.webrtc.VideoSink;
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -399,19 +400,14 @@ public class CallActivity extends Activity implements AppRTCClient.SignalingEven
 
         // Create peer connection client.
         peerConnectionClient = new PeerConnectionClient(
-                getApplicationContext(), eglBase, peerConnectionParameters, CallActivity.this, null, new NewFrameListioner() {
+                getApplicationContext(), eglBase, peerConnectionParameters, CallActivity.this, null, new NewNetworkTextureListioner() {
             @Override
-            public void onNewFrame(VideoFrame frame) {
+            public void onNewNetworkTexture(SurfaceTexture texture) {
 
-            }
-
-            @Override
-            public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG, "New Texture By Peer Connection");
             }
         });
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
-        peerConnectionClient.setListioner(this);
+        //peerConnectionClient.se(this);
         if (loopback) {
             options.networkIgnoreMask = 0;
         }

@@ -49,6 +49,7 @@ import org.webrtc.VideoFrame;
 import org.webrtc.VideoSink;
 import org.webrtc.VideoTrack;
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -73,7 +74,7 @@ import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_URLPA
  * Activity for peer connection call setup, call waiting
  * and call view.
  */
-public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, PeerConnectionClient.PeerConnectionEvents, IDataChannelMessageSender, IDataChannelObserver, NewFrameListioner {
+public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, PeerConnectionClient.PeerConnectionEvents, IDataChannelMessageSender, IDataChannelObserver {
     private static final String TAG = "WebRTCClient69";
 
 
@@ -137,7 +138,24 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
     private String url;
     private String token;
 
+    /*
+@Bhushan (Introtuce)
+14-072-2021
+Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner and
+for Local Frames @NewFrameListioner
+*/
+
     NewFrameListioner listioner;
+    NewNetworkTextureListioner networkTextureListioner;
+
+
+    public NewNetworkTextureListioner getNetworkTextureListioner() {
+        return networkTextureListioner;
+    }
+
+    public void setNetworkTextureListioner(NewNetworkTextureListioner networkTextureListioner) {
+        this.networkTextureListioner = networkTextureListioner;
+    }
 
     public NewFrameListioner getListioner() {
         return listioner;
@@ -355,20 +373,28 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
         }
         // Create peer connection client.
         peerConnectionClient = new PeerConnectionClient(
-                this.context.getApplicationContext(), eglBase, peerConnectionParameters, WebRTCClient.this, WebRTCClient.this, new NewFrameListioner() {
+                this.context.getApplicationContext(), eglBase, peerConnectionParameters, WebRTCClient.this, WebRTCClient.this, new NewNetworkTextureListioner() {
             @Override
-            public void onNewFrame(VideoFrame frame) {
-
-            }
-
-            @Override
-            public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG, "New Texture iN Web Client By peer Connection");
+            public void onNewNetworkTexture(SurfaceTexture texture) {
+                if (networkTextureListioner != null)
+                    networkTextureListioner.onNewNetworkTexture(texture);
             }
         });
 
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
-        peerConnectionClient.setListioner(this);
+//        peerConnectionClient.setListioner(new NewFrameListioner() {
+//            @Override
+//            public void onNewFrame(VideoFrame frame) {
+//
+//            }
+//
+//            @Override
+//            public void onNewTexture(SurfaceTexture texture) {
+//                Log.d(TAG, "New Texture iN Web Client By peer Connection");
+//                if (listioner != null)
+//                    listioner.onNewTexture(texture);
+//            }
+//        });
         if (loopback) {
             options.networkIgnoreMask = 0;
         }
@@ -776,6 +802,18 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
             Logging.d(TAG, "Creating capturer using camera2 API.");
             Camera2Enumerator camera2Enumerator = new Camera2Enumerator(this.context);
             // camera2Enumerator.addtextureCallback(new );
+            camera2Enumerator.setListioner(new NewFrameListioner() {
+                @Override
+                public void onNewFrame(VideoFrame frame) {
+
+                }
+
+                @Override
+                public void onNewTexture(SurfaceTexture texture) {
+                    if (listioner != null)
+                        listioner.onNewTexture(texture);
+                }
+            });
             videoCapturer = createCameraCapturer(camera2Enumerator);
         } else {
             Logging.d(TAG, "Creating capturer using camera1 API.");
@@ -1210,14 +1248,5 @@ public class WebRTCClient implements IWebRTCClient, AntMediaSignallingEvents, Pe
         return captureTimeMsMap;
     }
 
-    @Override
-    public void onNewFrame(VideoFrame frame) {
-    }
 
-    @Override
-    public void onNewTexture(SurfaceTexture texture) {
-        // Gettting Network Frame from Peer Connection Client here
-        if (listioner != null)
-            listioner.onNewTexture(texture);
-    }
 }

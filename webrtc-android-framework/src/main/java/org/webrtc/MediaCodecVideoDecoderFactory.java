@@ -23,6 +23,7 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,7 +44,7 @@ class MediaCodecVideoDecoderFactory implements VideoDecoderFactory {
     private final @Nullable
     Predicate<MediaCodecInfo> codecAllowedPredicate;
 
-    NewFrameListioner listioner;
+    NewNetworkTextureListioner listioner;
 
     /**
      * MediaCodecVideoDecoderFactory with support of codecs filtering.
@@ -54,20 +55,17 @@ class MediaCodecVideoDecoderFactory implements VideoDecoderFactory {
      *                              allowed when predicate is not provided.
      */
     public MediaCodecVideoDecoderFactory(@Nullable EglBase.Context sharedContext,
-                                         @Nullable Predicate<MediaCodecInfo> codecAllowedPredicate,NewFrameListioner newFrameListioner) {
+                                         @Nullable Predicate<MediaCodecInfo> codecAllowedPredicate,NewNetworkTextureListioner newNetworkTextureListioner) {
         this.sharedContext = sharedContext;
         this.codecAllowedPredicate = codecAllowedPredicate;
-        this.listioner = newFrameListioner;
+        this.listioner = newNetworkTextureListioner;
     }
 
-
-
-
-    public NewFrameListioner getListioner() {
+    public NewNetworkTextureListioner getListioner() {
         return listioner;
     }
 
-    public void setListioner(NewFrameListioner listioner) {
+    public void setListioner(NewNetworkTextureListioner listioner) {
         this.listioner = listioner;
     }
 
@@ -87,20 +85,13 @@ class MediaCodecVideoDecoderFactory implements VideoDecoderFactory {
                 MediaCodecUtils.selectColorFormat(MediaCodecUtils.DECODER_COLOR_FORMATS, capabilities),
                 sharedContext);
 
-        androidVideoDecoder.setListioner(new NewFrameListioner() {
+        androidVideoDecoder.setListioner(new NewNetworkTextureListioner() {
             @Override
-            public void onNewFrame(VideoFrame frame) {
-
-            }
-
-            @Override
-            public void onNewTexture(SurfaceTexture texture) {
-              Log.d(TAG,"ON New TExture ims Long class");
-                if (listioner != null)
-                    listioner.onNewTexture(texture);
+            public void onNewNetworkTexture(SurfaceTexture texture) {
+                if(listioner!=null)
+                    listioner.onNewNetworkTexture(texture);
             }
         });
-
         return androidVideoDecoder;
     }
 

@@ -16,6 +16,7 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -30,47 +31,42 @@ public class DefaultVideoDecoderFactory implements VideoDecoderFactory {
     private final @Nullable
     VideoDecoderFactory platformSoftwareVideoDecoderFactory;
 
-    NewFrameListioner listioner;
+    /*
+@Bhushan (Introtuce)
+14-072-2021
+Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
+*/
+
+    NewNetworkTextureListioner listioner;
 
     private String TAG = "DefaultVideoDecoderFactory";
 
-    public NewFrameListioner getListioner() {
+
+    public NewNetworkTextureListioner getListioner() {
         return listioner;
     }
 
-    public void setListioner(NewFrameListioner listioner) {
+    public void setListioner(NewNetworkTextureListioner listioner) {
         this.listioner = listioner;
     }
 
     /**
      * Create decoder factory using default hardware decoder factory.
      */
-    public DefaultVideoDecoderFactory(@Nullable EglBase.Context eglContext, NewFrameListioner listioner) {
-        this.hardwareVideoDecoderFactory = new HardwareVideoDecoderFactory(eglContext, new NewFrameListioner() {
+    public DefaultVideoDecoderFactory(@Nullable EglBase.Context eglContext, NewNetworkTextureListioner listioner) {
+        this.hardwareVideoDecoderFactory = new HardwareVideoDecoderFactory(eglContext, new NewNetworkTextureListioner() {
             @Override
-            public void onNewFrame(VideoFrame frame) {
-
-            }
-
-            @Override
-            public void onNewTexture(SurfaceTexture texture) {
-                if(listioner!=null)
-                    listioner.onNewTexture(texture);
-                Log.d(TAG, "Texture From Hardeare ");
-
+            public void onNewNetworkTexture(SurfaceTexture texture) {
+                if (listioner != null)
+                    listioner.onNewNetworkTexture(texture);
             }
         });
-        this.platformSoftwareVideoDecoderFactory = new PlatformSoftwareVideoDecoderFactory(eglContext, new NewFrameListioner() {
-            @Override
-            public void onNewFrame(VideoFrame frame) {
 
-            }
-
+        this.platformSoftwareVideoDecoderFactory = new PlatformSoftwareVideoDecoderFactory(eglContext, new NewNetworkTextureListioner() {
             @Override
-            public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG, "Texture From Software ");
-                if(listioner!=null)
-                    listioner.onNewTexture(texture);
+            public void onNewNetworkTexture(SurfaceTexture texture) {
+                if (listioner != null)
+                    listioner.onNewNetworkTexture(texture);
             }
         });
         this.listioner = listioner;

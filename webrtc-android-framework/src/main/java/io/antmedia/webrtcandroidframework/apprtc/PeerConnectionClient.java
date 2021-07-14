@@ -61,6 +61,7 @@ import org.webrtc.audio.JavaAudioDeviceModule.AudioRecordStateCallback;
 import org.webrtc.audio.JavaAudioDeviceModule.AudioTrackErrorCallback;
 import org.webrtc.audio.JavaAudioDeviceModule.AudioTrackStateCallback;
 import org.webrtc.voiceengine.NewFrameListioner;
+import org.webrtc.voiceengine.NewNetworkTextureListioner;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,7 +92,7 @@ import io.antmedia.webrtcandroidframework.IDataChannelObserver;
  */
 
 
-public class PeerConnectionClient implements IDataChannelMessageSender, NewFrameListioner {
+public class PeerConnectionClient implements IDataChannelMessageSender {
     public static final String VIDEO_TRACK_ID = "ARDAMSv0";
     public static final String AUDIO_TRACK_ID = "ARDAMSa0";
     public static final String VIDEO_TRACK_TYPE = "video";
@@ -192,7 +193,13 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
     @Nullable
     IDataChannelObserver dataChannelObserver;
 
-    NewFrameListioner listioner;
+    /*
+@Bhushan (Introtuce)
+14-072-2021
+Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
+*/
+
+    NewNetworkTextureListioner listioner;
 
     final DataChannel.Observer dataChannelInternalObserver = new DataChannel.Observer() {
         @Override
@@ -263,28 +270,9 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
         });
     }
 
-    public NewFrameListioner getListioner() {
-        return listioner;
-    }
-
-    public void setListioner(NewFrameListioner listioner) {
-        this.listioner = listioner;
-    }
 
     public void setLocalVideoTrack(@javax.annotation.Nullable VideoTrack localVideoTrack) {
         this.localVideoTrack = localVideoTrack;
-    }
-
-    @Override
-    public void onNewFrame(VideoFrame frame) {
-
-    }
-
-    @Override
-    public void onNewTexture(SurfaceTexture texture) {
-        if (listioner != null) {
-            listioner.onNewTexture(texture);
-        }
     }
 
     /**
@@ -440,14 +428,15 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
      * ownership of |eglBase|.
      */
     public PeerConnectionClient(Context appContext, EglBase eglBase,
-                                PeerConnectionParameters peerConnectionParameters, PeerConnectionEvents events, IDataChannelObserver dataChannelObserver,NewFrameListioner newFrameListioner) {
+                                PeerConnectionParameters peerConnectionParameters, PeerConnectionEvents events, IDataChannelObserver dataChannelObserver,
+                                NewNetworkTextureListioner newNetworkTextureListioner) {
         this.rootEglBase = eglBase;
         this.appContext = appContext;
         this.events = events;
         this.peerConnectionParameters = peerConnectionParameters;
         this.dataChannelEnabled = peerConnectionParameters.dataChannelParameters != null;
         this.dataChannelObserver = dataChannelObserver;
-        this.listioner = newFrameListioner;
+        this.listioner = newNetworkTextureListioner;
 
         Log.d(TAG, "Preferred video codec: " + getSdpVideoCodecName(peerConnectionParameters));
 
@@ -556,24 +545,18 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
         final VideoDecoderFactory decoderFactory;
 
         // Making listioner
-        NewFrameListioner listioner1 = new NewFrameListioner() {
+        NewNetworkTextureListioner listioner1 = new NewNetworkTextureListioner() {
             @Override
-            public void onNewFrame(VideoFrame frame) {
-
-            }
-
-            @Override
-            public void onNewTexture(SurfaceTexture texture) {
-                if(listioner!=null)
-                    listioner.onNewTexture(texture);
-                Log.d(TAG, "NewTexture In Per Connection");
+            public void onNewNetworkTexture(SurfaceTexture texture) {
+                if (listioner != null)
+                    listioner.onNewNetworkTexture(texture);
             }
         };
 
         if (peerConnectionParameters.videoCodecHwAcceleration) {
             encoderFactory = new DefaultVideoEncoderFactory(
                     rootEglBase.getEglBaseContext(), true /* enableIntelVp8Encoder */, enableH264HighProfile);
-            decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext(),listioner1);
+            decoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext(), listioner1);
 
 
         } else {
@@ -1116,7 +1099,18 @@ public class PeerConnectionClient implements IDataChannelMessageSender, NewFrame
         if (localVideoTrack == null && capturer != null) {
             surfaceTextureHelper =
                     SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
-            surfaceTextureHelper.setListioner(this);
+            surfaceTextureHelper.setListioner(new NewFrameListioner() {
+                @Override
+                public void onNewFrame(VideoFrame frame) {
+
+                }
+
+                @Override
+                public void onNewTexture(SurfaceTexture texture) {
+                    if (listioner != null)
+                        listioner.onNewNetworkTexture(texture);
+                }
+            });
             videoSource = factory.createVideoSource(capturer.isScreencast());
             capturer.initialize(surfaceTextureHelper, appContext, videoSource.getCapturerObserver());
             capturer.startCapture(videoWidth, videoHeight, videoFps);
