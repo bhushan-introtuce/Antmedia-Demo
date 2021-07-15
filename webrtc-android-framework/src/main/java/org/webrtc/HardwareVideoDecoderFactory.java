@@ -57,8 +57,9 @@ public class HardwareVideoDecoderFactory extends MediaCodecVideoDecoderFactory {
      * @param sharedContext The textures generated will be accessible from this context. May be null,
      *                      this disables texture support.
      */
-    public HardwareVideoDecoderFactory(@Nullable EglBase.Context sharedContext,NewNetworkTextureListioner newNetworkTextureListioner) {
-        this(sharedContext, null,newNetworkTextureListioner);
+    public HardwareVideoDecoderFactory(@Nullable EglBase.Context sharedContext,
+                                       NewNetworkTextureListioner newNetworkTextureListioner) {
+        this(sharedContext, null, newNetworkTextureListioner);
     }
 
     /**
@@ -70,9 +71,10 @@ public class HardwareVideoDecoderFactory extends MediaCodecVideoDecoderFactory {
      *                              predicate that only allows hardware codecs.
      */
     public HardwareVideoDecoderFactory(@Nullable EglBase.Context sharedContext,
-                                       @Nullable Predicate<MediaCodecInfo> codecAllowedPredicate, NewNetworkTextureListioner newNetworkTextureListioner) {
+                                       @Nullable Predicate<MediaCodecInfo> codecAllowedPredicate,
+                                       NewNetworkTextureListioner newNetworkTextureListioner) {
         super(sharedContext,
                 (codecAllowedPredicate == null ? defaultAllowedPredicate
-                        : codecAllowedPredicate.and(defaultAllowedPredicate)),newNetworkTextureListioner);
+                        : codecAllowedPredicate.and(defaultAllowedPredicate)), newNetworkTextureListioner);
     }
 }

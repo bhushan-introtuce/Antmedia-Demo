@@ -226,6 +226,7 @@ public class SurfaceTextureHelper {
         this.yuvConverter = yuvConverter;
         this.frameRefMonitor = frameRefMonitor;
 
+
         eglBase = EglBase.create(sharedContext, EglBase.CONFIG_PIXEL_BUFFER);
         try {
             // Both these statements have been observed to fail on rare occasions, see BUG=webrtc:5682.
@@ -414,11 +415,11 @@ public class SurfaceTextureHelper {
         final VideoFrame frame = new VideoFrame(buffer, frameRotation, timestampNs);
         listener.onFrame(frame);
         listener.OnTexture(surfaceTexture);
+
         if (listioner != null)
             listioner.onNewTexture(surfaceTexture);
         else
             Log.d("TAG", "Null Listioner");
-        //  surfaceTexture.detachFromGLContext();
         frame.release();
     }
 

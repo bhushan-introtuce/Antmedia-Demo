@@ -163,7 +163,6 @@ class Camera1Session implements CameraSession {
       android.hardware.Camera.CameraInfo info, CaptureFormat captureFormat,
       long constructionTimeNs) {
     Logging.d(TAG, "Create new camera1 session on camera " + cameraId);
-
     this.cameraThreadHandler = new Handler();
     this.events = events;
     this.captureToTexture = captureToTexture;
@@ -174,7 +173,6 @@ class Camera1Session implements CameraSession {
     this.info = info;
     this.captureFormat = captureFormat;
     this.constructionTimeNs = constructionTimeNs;
-
     surfaceTextureHelper.setTextureSize(captureFormat.width, captureFormat.height);
 
     startCapturing();
