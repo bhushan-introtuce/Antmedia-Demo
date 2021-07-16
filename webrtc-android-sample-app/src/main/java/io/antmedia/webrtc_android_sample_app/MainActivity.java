@@ -1,6 +1,5 @@
 package io.antmedia.webrtc_android_sample_app;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
@@ -10,8 +9,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.util.Log;
+import android.util.Size;
+import android.view.Surface;
+import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.AdapterView;
@@ -23,6 +26,7 @@ import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -30,13 +34,18 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.mediapipe.components.CameraHelper;
+import com.google.mediapipe.components.PermissionHelper;
+import com.google.mediapipe.framework.AndroidAssetUtil;
+import com.google.mediapipe.framework.Packet;
+import com.google.mediapipe.framework.PacketCallback;
+import com.google.mediapipe.glutil.EglManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 import org.webrtc.DataChannel;
-import org.webrtc.EglBase;
 import org.webrtc.RendererCommon;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoFrame;
@@ -49,6 +58,12 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import de.tavendo.autobahn.WebSocket;
+import io.antmedia.webrtc_android_sample_app.mediapipe.AcExternalTextureConverter;
+import io.antmedia.webrtc_android_sample_app.mediapipe.MultiInputFrameProcessor;
+import io.antmedia.webrtc_android_sample_app.mediapipe.MyCameraXHelper;
+import io.antmedia.webrtc_android_sample_app.mediapipe.MyGL2SurfaceView;
+import io.antmedia.webrtc_android_sample_app.mediapipe.MySurfaceTexture;
+import io.antmedia.webrtc_android_sample_app.mediapipe.NewDefaultPlayer;
 import io.antmedia.webrtcandroidframework.IDataChannelObserver;
 import io.antmedia.webrtcandroidframework.IWebRTCClient;
 import io.antmedia.webrtcandroidframework.IWebRTCListener;
@@ -63,7 +78,7 @@ import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_VIDEO
 import static org.opencv.core.CvType.CV_8UC1;
 import static org.opencv.imgproc.Imgproc.cvtColor;
 
-public class MainActivity extends Activity implements IWebRTCListener, IDataChannelObserver {
+public class MainActivity extends AppCompatActivity implements IWebRTCListener, IDataChannelObserver {
 
     /**
      * Change this address with your Ant Media Server address
@@ -74,7 +89,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
      * Mode can Publish, Play or P2P
      */
 
-    private String webRTCMode = IWebRTCClient.MODE_JOIN;
+    private String webRTCMode = IWebRTCClient.MODE_PLAY;
 
     private boolean enableDataChannel = true;
 
@@ -106,9 +121,153 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         }
     };
     private String TAG = "MainActivity";
-    TextureView LocalTextureView, NetworkTextureView;
+    TextureView camTexture, pipTexture;
+
+    // For Mediapipe Integration
+//    private SurfaceTexture previewFrameTexture;
+    private SurfaceView previewDisplayView;
+//
+//
+
+    static {
+        // Load all native libraries need ed by the app.
+        System.loadLibrary("mediapipe_jni");
+        try {
+            System.loadLibrary("opencv_java3");
+        } catch (java.lang.UnsatisfiedLinkError e) {
+            // Some example apps (e.g. template matching) require OpenCV 4.
+            System.loadLibrary("opencv_java4");
+        }
+    }
+
+    // MediaPipr Impl
+
+    private SurfaceTexture surfaceTexture, previewFrameTexture;
+
+
+    private static CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.FRONT;
+    private static final String BINARY_GRAPH_NAME = "person_segmentation_android_gpu.binarypb";
+    private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
+    private static final String BG_VIDEO_INPUT_STREAM = "bg_video";
+    private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
+
+
+    /*
+     {@link SurfaceView} that displays the camera-preview frames processed by a MediaPipe graph.
+    private SurfaceView previewDisplayView;
+    Creates and manages an {@link EGLContext}
+    */
+    private EglManager eglManager;
+
+    /*
+     Sends camera-preview frames into a MediaPipe graph for processing, and displays the processed
+     frames onto a {@link Surface}.
+     */
+
+    private MultiInputFrameProcessor processor;
+
+    /*
+    Converts the GL_TEXTURE_EXTERNAL_OES texture from Android camera into a regular texture to be
+    consumed by {@link FrameProcessor} and the underlying MediaPipe graph.
+    */
+
+    private AcExternalTextureConverter converter;
+
+    //Surface To Display MediaPipe Output
+    private MyGL2SurfaceView newSurfaceView;
+
+    private PowerManager.WakeLock wl;
+
+    private long oldTime = System.currentTimeMillis();
     private int i = 0;
-    private int j = 0;
+    private NewDefaultPlayer player;
+
+
+    TextureView texture1, texture2;
+    //Accessing The Camera Frames
+    private MyCameraXHelper cameraHelper;
+    private int textureId;
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        newSetupDisplay();
+        converter = new AcExternalTextureConverter(eglManager.getContext());
+        converter.setFlipY(true);
+        converter.setConsumer(processor);
+        converter.setFgTimeStamp(processor.getFgTimestamp());
+        if (PermissionHelper.cameraPermissionsGranted(this)) {
+            startCamera();
+        }
+        mediaPlay();
+    }
+
+    private void startCamera() {
+        cameraHelper = new MyCameraXHelper();
+        cameraHelper.setOnCameraStartedListener(
+                surfaceTexture -> {
+                    previewFrameTexture = surfaceTexture;
+                    // Make the display view visible to start showing the preview. This triggers the
+                    // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
+                    // videoTexture.setVisibility(View.VISIBLE);
+                    newSurfaceView.setVisibility(View.VISIBLE);
+                    newSurfaceView.resume();
+
+                    Log.d(TAG, "Camera Started");
+                });
+        cameraHelper.startCamera(this, CAMERA_FACING, /*surfaceTexture=*/ null);
+    }
+
+    private void newSetupDisplay() {
+        Log.d(TAG, "Creation start");
+        newSurfaceView = new MyGL2SurfaceView(this);
+        //newSurfaceView.setVisibility(View.GONE);
+        ViewGroup viewGroup = findViewById(R.id.mediapie_view);
+        viewGroup.removeAllViews();
+        viewGroup.addView(newSurfaceView);
+
+        MyGL2SurfaceView.CustomSurfaceListener surfaceListener = new MyGL2SurfaceView.CustomSurfaceListener() {
+            @Override
+            public void onSurfaceChanged(int width, int height) {
+                Log.d(TAG, "Created surface");
+                Log.d(TAG, "Setting " + width + " , " + height);
+
+                Size viewSize = new Size(width, height);
+//                Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
+
+                converter.setbGSurfaceTextureAndAttachToGLContext(
+                        surfaceTexture, width, height);
+
+                converter.setSurfaceTextureAndAttachToGLContext(
+                        previewFrameTexture, width, height);
+
+            }
+
+            @Override
+            public void onSurfaceDestroyed() {
+                processor.getVideoSurfaceOutput().setSurface(null);
+            }
+
+            @Override
+            public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
+                Log.d(TAG, "On Surface Created");
+                Surface surface = new Surface(surfaceTexture);
+                processor.getVideoSurfaceOutput().setSurface(surface);
+
+            }
+        };
+        newSurfaceView.setCustomSurfaceListener(surfaceListener);
+    }
+
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        converter.onpause();
+        converter.close();
+        System.gc();
+    }
 
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -119,7 +278,10 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::MyWakelockTag");
+            wl.acquire();
             this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            this.requestWindowFeature(Window.FEATURE_NO_TITLE);
             this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN |
                             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
                             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
@@ -133,11 +295,32 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
             e.printStackTrace();
         }
 
-        NetworkTextureView = findViewById(R.id.network_texture_view);
-        LocalTextureView = findViewById(R.id.local_texture_view);
+        AndroidAssetUtil.initializeNativeAssetManager(this);
+        eglManager = new EglManager(null);
+
+        processor = new MultiInputFrameProcessor(
+                this,
+                eglManager.getNativeContext(),
+                BINARY_GRAPH_NAME,
+                INPUT_VIDEO_STREAM_NAME,
+                OUTPUT_VIDEO_STREAM_NAME, BG_VIDEO_INPUT_STREAM);
+
+        processor.getVideoSurfaceOutput().setFlipY(true); // Flip frames Vertically
+        processor.getGraph().addPacketCallback(OUTPUT_VIDEO_STREAM_NAME, new PacketCallback() {
+            @Override
+            public void process(Packet packet) {
+                Log.d(TAG, "On New Packet : " + packet.getTimestamp());
+            }
+        });
+
+        texture1 = findViewById(R.id.texture1);
+        texture2 = findViewById(R.id.texture2);
         cameraViewRenderer = findViewById(R.id.camera_view_renderer);
         pipViewRenderer = findViewById(R.id.pip_view_renderer);
+        camTexture = findViewById(R.id.texture_view_Camera);
+        pipTexture = findViewById(R.id.texture_view_pip);
         startStreamingButton = findViewById(R.id.start_streaming_button);
+
         streamInfoListSpinner = findViewById(R.id.stream_info_list);
 
         if (!webRTCMode.equals(IWebRTCClient.MODE_PLAY)) {
@@ -190,8 +373,15 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         this.getIntent().putExtra(EXTRA_CAPTURETOTEXTURE_ENABLED, true);
         this.getIntent().putExtra(EXTRA_DATA_CHANNEL_ENABLED, enableDataChannel);
 
+        // mediapipe Impl
+
+
+        // previewDisplayView = new SurfaceView(this);
+        //setupPreviewDisplayView();
 
         webRTCClient = new WebRTCClient(this, this);
+
+
 
 
         webRTCClient.setListioner(new NewFrameListioner() {
@@ -202,22 +392,20 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-                Log.d(TAG, "New Texture By WebRTC ");
-                if (i == 0) {
-                    i = 1;
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            LocalTextureView.setSurfaceTexture(texture);
-                        }
-                    });
-                    texture.detachFromGLContext();
-                }
 
+                //previewFrameTexture = texture;
+              //  texture.detachFromGLContext();
 
-                //newSurfaceView.setVisibility(View.VISIBLE);
-                // newSurfaceView.resume();
-                //  previewFrameTexture = texture;
+//                if(i==0)
+//                {
+//                    i=1;
+//                    previewFrameTexture = texture;
+//                    // Make the display view visible to start showing the preview. This triggers the
+//                    // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
+//                    // videoTexture.setVisibility(View.VISIBLE);
+//                    newSurfaceView.setVisibility(View.VISIBLE);
+//                    newSurfaceView.resume();
+
 //                runOnUiThread(new Runnable() {
 //                    @Override
 //                    public void run() {
@@ -225,6 +413,17 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //                    }
 //                });
                 // texture.detachFromGLContext();
+
+                //
+                //  Log.d(TAG, "New Texture By WebR TC ");
+                // surfaceTexture = texture;
+                //   previewFrameTexture = texture;
+                //texture.detachFromGLContext();
+
+                //newSurfaceView.setVisibility(View.VISIBLE);
+                // newSurfaceView.resume();
+                //  previewFrameTexture = texture;
+
 
                 ///             surfaceTexture = texture;
 //
@@ -252,6 +451,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //                }
                 // texture.release();
                 //texture.detachFromGLContext();
+                //  Log.d(TAG, "Timestamp: " + String.valueOf(texture.getTimestamp()));
 
 //                if(texture.isReleased())
 //                 texture.detachFromGLContext();
@@ -265,23 +465,19 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
         webRTCClient.setNetworkTextureListioner(new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
-                Log.d(TAG, "New Texture From Network");
-                //previewFrameTexture = texture;
-                if (j == 0) {
-                    j = 1;
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            NetworkTextureView.setSurfaceTexture(texture);
-                        }
-                    });
-                    texture.detachFromGLContext();
+//                Log.d(TAG, "New Texture From Network");
+//                //previewFrameTexture = texture;
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        texture1.setSurfaceTexture(texture);
+//                    }
+//                });
+//                texture.detachFromGLContext();
 
-                }
 
             }
         });
-
         // eglManager = new EglManager(null);
 //
 //        try{
@@ -385,7 +581,7 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //                Bitmap image = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
 //                //iv.setImageBitmap(image);
 
-                Log.d(TAG, "new Frame by CameraRenderer with Id : ");
+                //      Log.d(TAG, "new Frame by CameraRenderer with Id : ");
 
                 /* o
 
@@ -418,7 +614,6 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //                Log.d("i420_time", Long.toString(endTimei - startTimei) + " ," + frame.getRotatedWidth() + "," + frame.getRotatedHeight());
 //                Log.d("picyv12_size", picyv12.size().toString()); // Check size
 //                Log.d("picyv12_type", String.valueOf(picyv12.type())); // Check type
-
 //                VideoFrame.I420Buffer yuVBuffer = frame.getBuffer().toI420();
 //                // New Impl
 //                byte[] nv21;
@@ -444,7 +639,6 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
 //                Utils.matToBitmap(mRGB, tbmp2); // Convert mat to bitmap (height, width) i.e (512,512) - ARGB_888
 //                //       SaveBitmap.save(mContext,tbmp2,"Segmented");
 //                //  save(tbmp2,"itest"); // Save bitmap
-
 //
 //                Bitmap original = tbmp2;
 //
@@ -794,19 +988,19 @@ public class MainActivity extends Activity implements IWebRTCListener, IDataChan
     }
 
     private void mediaPlay() {
-//        try {
-//            surfaceTexture = new MySurfaceTexture(42);
-//            player = new NewDefaultPlayer();
-//            player.setSurface(new Surface(surfaceTexture));
-//            player.setDataSource("https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8");
-//            player.setLooping(true);
-//            //player.setBufferEventInfoListner(bufferEventInfoListner);
-//            player.prepare();
-//            player.start();
-//        } catch (Exception e) {
-//            Log.d(TAG, e.toString());
-//            e.printStackTrace();
-//        }
+        try {
+            surfaceTexture = new MySurfaceTexture(42);
+            player = new NewDefaultPlayer();
+            player.setSurface(new Surface(surfaceTexture));
+            player.setDataSource("https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8");
+            player.setLooping(true);
+            //player.setBufferEventInfoListner(bufferEventInfoListner);
+            player.prepare();
+            player.start();
+        } catch (Exception e) {
+            Log.d(TAG, e.toString());
+            e.printStackTrace();
+        }
     }
 
 }

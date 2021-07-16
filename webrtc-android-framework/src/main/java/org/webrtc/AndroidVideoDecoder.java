@@ -188,7 +188,7 @@ Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
         if (sharedContext != null) {
             surfaceTextureHelper = createSurfaceTextureHelper();
 
-            // Adding Callback to get Network Textures
+            // Adding Callback to get etxture
             surfaceTextureHelper.setListioner(new NewFrameListioner() {
                 @Override
                 public void onNewFrame(VideoFrame frame) {
@@ -199,7 +199,6 @@ Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
                 public void onNewTexture(SurfaceTexture texture) {
                     if (listioner != null)
                         listioner.onNewNetworkTexture(texture);
-
                 }
             });
             surface = new Surface(surfaceTextureHelper.getSurfaceTexture());

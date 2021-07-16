@@ -74,30 +74,22 @@
         android:text="Start" />
 
 
-    <TextView
-        android:id="@+id/tv_1"
+    <FrameLayout
+        android:id="@+id/mediapie_view"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Local Textures Here" />
+        android:layout_height="200dp" />
 
     <TextureView
-        android:id="@+id/local_texture_view"
+        android:id="@+id/texture1"
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        android:layout_below="@+id/tv_1" />
-
-    <TextView
-        android:id="@+id/tv_2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/local_texture_view"
-        android:text="Network Textures Here" />
+        android:layout_below="@+id/mediapie_view" />
 
     <TextureView
-        android:id="@+id/network_texture_view"
+        android:id="@+id/texture2"
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        android:layout_below="@+id/tv_2" />
+        android:layout_below="@+id/texture1" />
 
 
 </RelativeLayout>
