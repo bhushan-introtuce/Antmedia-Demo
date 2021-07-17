@@ -142,8 +142,11 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 
     // MediaPipr Impl
 
-    private SurfaceTexture surfaceTexture, previewFrameTexture;
+    private SurfaceTexture surfaceTexture;
+    MySurfaceTexture previewFrameTexture;
 
+    // private MySurfaceTexture surfaceTexture;
+    private NewDefaultPlayer player;
 
     private static CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.FRONT;
     private static final String BINARY_GRAPH_NAME = "person_segmentation_android_gpu.binarypb";
@@ -180,7 +183,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 
     private long oldTime = System.currentTimeMillis();
     private int i = 0;
-    private NewDefaultPlayer player;
+    MediaPlayhelper mediaPlayhelper;
 
 
     TextureView texture1, texture2;
@@ -197,17 +200,19 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         converter.setFlipY(true);
         converter.setConsumer(processor);
         converter.setFgTimeStamp(processor.getFgTimestamp());
-        if (PermissionHelper.cameraPermissionsGranted(this)) {
-            startCamera();
-        }
-        mediaPlay();
+//        if (PermissionHelper.cameraPermissionsGranted(this)) {
+//            startCamera();
+//        }
+
+        surfaceTexture = mediaPlayhelper.getSurfaceTexture();
+
     }
 
     private void startCamera() {
         cameraHelper = new MyCameraXHelper();
         cameraHelper.setOnCameraStartedListener(
                 surfaceTexture -> {
-                    previewFrameTexture = surfaceTexture;
+                    //previewFrameTexture = surfaceTexture;
                     // Make the display view visible to start showing the preview. This triggers the
                     // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
                     // videoTexture.setVisibility(View.VISIBLE);
@@ -242,6 +247,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
                 converter.setSurfaceTextureAndAttachToGLContext(
                         previewFrameTexture, width, height);
 
+
             }
 
             @Override
@@ -254,6 +260,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
                 Log.d(TAG, "On Surface Created");
                 Surface surface = new Surface(surfaceTexture);
                 processor.getVideoSurfaceOutput().setSurface(surface);
+
 
             }
         };
@@ -312,6 +319,10 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
                 Log.d(TAG, "On New Packet : " + packet.getTimestamp());
             }
         });
+
+        mediaPlayhelper = new MediaPlayhelper();
+        mediaPlayhelper.mediaPlay();
+        mediaPlay();
 
         texture1 = findViewById(R.id.texture1);
         texture2 = findViewById(R.id.texture2);
@@ -382,8 +393,6 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         webRTCClient = new WebRTCClient(this, this);
 
 
-
-
         webRTCClient.setListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
@@ -392,9 +401,11 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
+                // previewFrameTexture = texture;
+                // texture.detachFromGLContext();
 
                 //previewFrameTexture = texture;
-              //  texture.detachFromGLContext();
+                //  texture.detachFromGLContext();
 
 //                if(i==0)
 //                {
@@ -987,12 +998,12 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         return mRGB;
     }
 
-    private void mediaPlay() {
+    public void mediaPlay() {
         try {
-            surfaceTexture = new MySurfaceTexture(42);
+            previewFrameTexture = new MySurfaceTexture(42);
             player = new NewDefaultPlayer();
-            player.setSurface(new Surface(surfaceTexture));
-            player.setDataSource("https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8");
+            player.setSurface(new Surface(previewFrameTexture));
+            player.setDataSource("http://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel.ism/.m3u8");
             player.setLooping(true);
             //player.setBufferEventInfoListner(bufferEventInfoListner);
             player.prepare();
@@ -1002,5 +1013,6 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
             e.printStackTrace();
         }
     }
+
 
 }
