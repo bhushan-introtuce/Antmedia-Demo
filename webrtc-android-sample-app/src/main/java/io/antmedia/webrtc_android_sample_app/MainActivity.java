@@ -143,7 +143,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
     // MediaPipr Impl
 
     private SurfaceTexture surfaceTexture;
-    MySurfaceTexture previewFrameTexture;
+    SurfaceTexture previewFrameTexture;
 
     // private MySurfaceTexture surfaceTexture;
     private NewDefaultPlayer player;
@@ -200,11 +200,10 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         converter.setFlipY(true);
         converter.setConsumer(processor);
         converter.setFgTimeStamp(processor.getFgTimestamp());
-//        if (PermissionHelper.cameraPermissionsGranted(this)) {
-//            startCamera();
-//        }
-
-        surfaceTexture = mediaPlayhelper.getSurfaceTexture();
+        if (PermissionHelper.cameraPermissionsGranted(this)) {
+            startCamera();
+        }
+        mediaPlay();
 
     }
 
@@ -212,7 +211,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         cameraHelper = new MyCameraXHelper();
         cameraHelper.setOnCameraStartedListener(
                 surfaceTexture -> {
-                    //previewFrameTexture = surfaceTexture;
+                    previewFrameTexture = surfaceTexture;
                     // Make the display view visible to start showing the preview. This triggers the
                     // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
                     // videoTexture.setVisibility(View.VISIBLE);
@@ -242,10 +241,10 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 //                Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
 
                 converter.setbGSurfaceTextureAndAttachToGLContext(
-                        surfaceTexture, width, height);
+                        previewFrameTexture, width, height);
 
                 converter.setSurfaceTextureAndAttachToGLContext(
-                        previewFrameTexture, width, height);
+                        surfaceTexture, width, height);
 
 
             }
@@ -320,9 +319,6 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
             }
         });
 
-        mediaPlayhelper = new MediaPlayhelper();
-        mediaPlayhelper.mediaPlay();
-        mediaPlay();
 
         texture1 = findViewById(R.id.texture1);
         texture2 = findViewById(R.id.texture2);
@@ -401,6 +397,21 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
+
+//                Log.d(TAG, "New ETxture");
+//
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        texture1.setSurfaceTexture(texture);
+//                    }
+//                });
+
+
+                //texture.detachFromGLContext();
+                //   texture.detachFromGLContext();
+
+
                 // previewFrameTexture = texture;
                 // texture.detachFromGLContext();
 
@@ -417,13 +428,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 //                    newSurfaceView.setVisibility(View.VISIBLE);
 //                    newSurfaceView.resume();
 
-//                runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        texture1.setSurfaceTexture(texture);
-//                    }
-//                });
-                // texture.detachFromGLContext();
+
 
                 //
                 //  Log.d(TAG, "New Texture By WebR TC ");
@@ -476,6 +481,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         webRTCClient.setNetworkTextureListioner(new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
+
 //                Log.d(TAG, "New Texture From Network");
 //                //previewFrameTexture = texture;
 //                runOnUiThread(new Runnable() {
@@ -1000,9 +1006,9 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 
     public void mediaPlay() {
         try {
-            previewFrameTexture = new MySurfaceTexture(42);
+            surfaceTexture = new MySurfaceTexture(42);
             player = new NewDefaultPlayer();
-            player.setSurface(new Surface(previewFrameTexture));
+            player.setSurface(new Surface(surfaceTexture));
             player.setDataSource("http://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel.ism/.m3u8");
             player.setLooping(true);
             //player.setBufferEventInfoListner(bufferEventInfoListner);
