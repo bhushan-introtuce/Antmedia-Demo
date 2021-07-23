@@ -88,6 +88,7 @@ class MediaCodecVideoDecoderFactory implements VideoDecoderFactory {
         androidVideoDecoder.setListioner(new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
+                Log.d("Callback","New Net Texture in "+TAG);
                 if(listioner!=null)
                     listioner.onNewNetworkTexture(texture);
             }

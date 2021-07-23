@@ -95,6 +95,7 @@ public class SurfaceTextureHelper {
      * PeerConnectionFactory.createVideoSource(). This makes the timestamps more accurate and
      * closer to actual creation time.
      */
+
     public static SurfaceTextureHelper create(final String threadName,
                                               final Context sharedContext, boolean alignTimestamps, final YuvConverter yuvConverter,
                                               FrameRefMonitor frameRefMonitor) {
@@ -377,6 +378,7 @@ public class SurfaceTextureHelper {
         // See https://bugs.chromium.org/p/webrtc/issues/detail?id=5702 for more info.
         synchronized (EglBase.lock) {
             surfaceTexture.updateTexImage();
+
         }
     }
 
@@ -418,8 +420,13 @@ public class SurfaceTextureHelper {
             listioner.onNewTexture(surfaceTexture);
         else
             Log.d("TAG", "Null Listioner");
-        //  surfaceTexture.detachFromGLContext();
+
+        if (networkTextureListioner != null)
+            networkTextureListioner.onNewNetworkTexture(surfaceTexture);
+
+        Log.d(TAG,GLES20.glGetError()+"Egl status");
         frame.release();
+        // surfaceTexture.detachFromGLContext();
     }
 
     private void release() {

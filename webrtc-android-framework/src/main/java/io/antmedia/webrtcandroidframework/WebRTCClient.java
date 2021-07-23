@@ -376,6 +376,7 @@ for Local Frames @NewFrameListioner
                 this.context.getApplicationContext(), eglBase, peerConnectionParameters, WebRTCClient.this, WebRTCClient.this, new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
+                Log.d("Callback","New Net Texture in "+TAG);
                 if (networkTextureListioner != null)
                     networkTextureListioner.onNewNetworkTexture(texture);
             }
@@ -812,6 +813,7 @@ for Local Frames @NewFrameListioner
                 public void onNewTexture(SurfaceTexture texture) {
                     if (listioner != null)
                         listioner.onNewTexture(texture);
+                   //  eglBase.detachCurrent();
                 }
             });
             videoCapturer = createCameraCapturer(camera2Enumerator);
@@ -828,6 +830,7 @@ for Local Frames @NewFrameListioner
                 public void onNewTexture(SurfaceTexture texture) {
                     if (listioner != null)
                         listioner.onNewTexture(texture);
+//                    eglBase.detachCurrent();
                 }
             });
             videoCapturer = createCameraCapturer(camera1Enumerator);

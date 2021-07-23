@@ -311,7 +311,7 @@ class EglBase10Impl implements EglBase10 {
     return eglConfig;
   }
 
-  // Return an EGLConfig, or die trying.
+  // Return an EGLContext, or die trying.
   private EGLContext createEglContext(@Nullable EGLContext sharedContext, EGLDisplay eglDisplay,
       EGLConfig eglConfig, int openGlesVersion) {
     if (sharedContext != null && sharedContext == EGL10.EGL_NO_CONTEXT) {

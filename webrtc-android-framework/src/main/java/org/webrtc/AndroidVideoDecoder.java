@@ -189,18 +189,16 @@ Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
             surfaceTextureHelper = createSurfaceTextureHelper();
 
             // Adding Callback to get etxture
-            surfaceTextureHelper.setListioner(new NewFrameListioner() {
-                @Override
-                public void onNewFrame(VideoFrame frame) {
 
-                }
-
+            surfaceTextureHelper.setNetworkTextureListioner(new NewNetworkTextureListioner() {
                 @Override
-                public void onNewTexture(SurfaceTexture texture) {
+                public void onNewNetworkTexture(SurfaceTexture texture) {
+                    Log.d("Callback","New Net Texture in "+TAG);
                     if (listioner != null)
                         listioner.onNewNetworkTexture(texture);
                 }
             });
+
             surface = new Surface(surfaceTextureHelper.getSurfaceTexture());
             surfaceTextureHelper.startListening(this);
         }
@@ -490,6 +488,7 @@ Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
             surfaceTextureHelper.setFrameRotation(rotation);
             renderedTextureMetadata = new DecodedTextureMetadata(info.presentationTimeUs, decodeTimeMs);
             codec.releaseOutputBuffer(index, /* render= */ true);
+            listioner.onNewNetworkTexture(surfaceTextureHelper.getSurfaceTexture());
         }
     }
 

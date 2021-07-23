@@ -3,15 +3,22 @@ package io.antmedia.webrtc_android_sample_app;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.BitmapDrawable;
+import android.opengl.EGL14;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
+import android.opengl.GLES20;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.util.Log;
-import android.util.Size;
-import android.view.Surface;
-import android.view.SurfaceView;
+import android.view.MotionEvent;
+import android.view.SurfaceHolder;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,6 +34,7 @@ import android.widget.Toast;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -34,18 +42,18 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
-import com.google.mediapipe.components.CameraHelper;
-import com.google.mediapipe.components.PermissionHelper;
+import com.google.common.flogger.backend.LogData;
 import com.google.mediapipe.framework.AndroidAssetUtil;
-import com.google.mediapipe.framework.Packet;
-import com.google.mediapipe.framework.PacketCallback;
-import com.google.mediapipe.glutil.EglManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 import org.webrtc.DataChannel;
+import org.webrtc.EglRenderer;
 import org.webrtc.RendererCommon;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoFrame;
@@ -56,14 +64,16 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Random;
+
+import javax.microedition.khronos.egl.EGL10;
+import javax.microedition.khronos.egl.EGLContext;
 
 import de.tavendo.autobahn.WebSocket;
-import io.antmedia.webrtc_android_sample_app.mediapipe.AcExternalTextureConverter;
-import io.antmedia.webrtc_android_sample_app.mediapipe.MultiInputFrameProcessor;
-import io.antmedia.webrtc_android_sample_app.mediapipe.MyCameraXHelper;
+import io.antmedia.webrtc_android_sample_app.mediapipe.GLTochListner;
+import io.antmedia.webrtc_android_sample_app.mediapipe.MediapipeController;
 import io.antmedia.webrtc_android_sample_app.mediapipe.MyGL2SurfaceView;
-import io.antmedia.webrtc_android_sample_app.mediapipe.MySurfaceTexture;
-import io.antmedia.webrtc_android_sample_app.mediapipe.NewDefaultPlayer;
+import io.antmedia.webrtc_android_sample_app.mediapipe.Nex2meSegmenter;
 import io.antmedia.webrtcandroidframework.IDataChannelObserver;
 import io.antmedia.webrtcandroidframework.IWebRTCClient;
 import io.antmedia.webrtcandroidframework.IWebRTCListener;
@@ -77,6 +87,7 @@ import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_VIDEO
 import static io.antmedia.webrtcandroidframework.apprtc.CallActivity.EXTRA_VIDEO_FPS;
 import static org.opencv.core.CvType.CV_8UC1;
 import static org.opencv.imgproc.Imgproc.cvtColor;
+import static org.opencv.imgproc.Imgproc.threshold;
 
 public class MainActivity extends AppCompatActivity implements IWebRTCListener, IDataChannelObserver {
 
@@ -89,7 +100,7 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
      * Mode can Publish, Play or P2P
      */
 
-    private String webRTCMode = IWebRTCClient.MODE_PLAY;
+    private String webRTCMode = IWebRTCClient.MODE_JOIN;
 
     private boolean enableDataChannel = true;
 
@@ -120,14 +131,15 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
             }
         }
     };
+
     private String TAG = "MainActivity";
     TextureView camTexture, pipTexture;
 
     // For Mediapipe Integration
-//    private SurfaceTexture previewFrameTexture;
-    private SurfaceView previewDisplayView;
-//
-//
+    private MyGL2SurfaceView newSurfaceView;
+    Nex2meSegmenter mediapipeController;
+    private ViewGroup mediapipeView;
+    private Bitmap original, mask, incoming;
 
     static {
         // Load all native libraries need ed by the app.
@@ -140,139 +152,120 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         }
     }
 
-    // MediaPipr Impl
+    private void initializaMediapipe() {
+        mediapipeView = findViewById(R.id.mediapipeView);
+        original = BitmapFactory.decodeResource(getResources(), R.drawable.button_press);
+        mediapipeController = new MediapipeController(MainActivity.this);
+        mediapipeController.setEventListener(mediapipeEventListner);
+        mediapipeController.initMediapipe(mediapipeView, newSurfaceView);
+    }
 
-    private SurfaceTexture surfaceTexture;
-    SurfaceTexture previewFrameTexture;
-
-    // private MySurfaceTexture surfaceTexture;
-    private NewDefaultPlayer player;
-
-    private static CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.FRONT;
-    private static final String BINARY_GRAPH_NAME = "person_segmentation_android_gpu.binarypb";
-    private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
-    private static final String BG_VIDEO_INPUT_STREAM = "bg_video";
-    private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
-
-
-    /*
-     {@link SurfaceView} that displays the camera-preview frames processed by a MediaPipe graph.
-    private SurfaceView previewDisplayView;
-    Creates and manages an {@link EGLContext}
-    */
-    private EglManager eglManager;
-
-    /*
-     Sends camera-preview frames into a MediaPipe graph for processing, and displays the processed
-     frames onto a {@link Surface}.
-     */
-
-    private MultiInputFrameProcessor processor;
-
-    /*
-    Converts the GL_TEXTURE_EXTERNAL_OES texture from Android camera into a regular texture to be
-    consumed by {@link FrameProcessor} and the underlying MediaPipe graph.
-    */
-
-    private AcExternalTextureConverter converter;
-
-    //Surface To Display MediaPipe Output
-    private MyGL2SurfaceView newSurfaceView;
-
-    private PowerManager.WakeLock wl;
-
-    private long oldTime = System.currentTimeMillis();
-    private int i = 0;
-    MediaPlayhelper mediaPlayhelper;
-
-
-    TextureView texture1, texture2;
-    //Accessing The Camera Frames
-    private MyCameraXHelper cameraHelper;
-    private int textureId;
+    private MediapipeController.EventListener mediapipeEventListner = new MediapipeController.EventListener() {
+        @Override
+        public void onSurfaceAvailable() {
+            try {
+                Log.d("SURFACE_CREATION", "surface available");
+            } catch (Exception e) {
+                Log.d("SURFACE_CREATION", "Error recorder " + e.toString());
+            }
+        }
+    };
 
 
     @Override
     protected void onResume() {
         super.onResume();
-        newSetupDisplay();
-        converter = new AcExternalTextureConverter(eglManager.getContext());
-        converter.setFlipY(true);
-        converter.setConsumer(processor);
-        converter.setFgTimeStamp(processor.getFgTimestamp());
-        if (PermissionHelper.cameraPermissionsGranted(this)) {
-            startCamera();
+        resumeMediapipe();
+
+        try {
+            newSurfaceView.resume();
+            initializaMediapipe();
+
+        } catch (Exception e) {
+
         }
-        mediaPlay();
+
+//        newSetupDisplay();
+//        converter = new AcExternalTextureConverter(eglManager.getContext());
+//        converter.setFlipY(true);
+//        converter.setConsumer(processor);
+//        converter.setFgTimeStamp(processor.getFgTimestamp());
+////        if (PermissionHelper.cameraPermissionsGranted(this)) {
+////            startCamera();
+////        }
+//        mediaPlay();
 
     }
 
-    private void startCamera() {
-        cameraHelper = new MyCameraXHelper();
-        cameraHelper.setOnCameraStartedListener(
-                surfaceTexture -> {
-                    previewFrameTexture = surfaceTexture;
-                    // Make the display view visible to start showing the preview. This triggers the
-                    // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
-                    // videoTexture.setVisibility(View.VISIBLE);
-                    newSurfaceView.setVisibility(View.VISIBLE);
-                    newSurfaceView.resume();
-
-                    Log.d(TAG, "Camera Started");
-                });
-        cameraHelper.startCamera(this, CAMERA_FACING, /*surfaceTexture=*/ null);
-    }
-
-    private void newSetupDisplay() {
-        Log.d(TAG, "Creation start");
-        newSurfaceView = new MyGL2SurfaceView(this);
-        //newSurfaceView.setVisibility(View.GONE);
-        ViewGroup viewGroup = findViewById(R.id.mediapie_view);
-        viewGroup.removeAllViews();
-        viewGroup.addView(newSurfaceView);
-
-        MyGL2SurfaceView.CustomSurfaceListener surfaceListener = new MyGL2SurfaceView.CustomSurfaceListener() {
-            @Override
-            public void onSurfaceChanged(int width, int height) {
-                Log.d(TAG, "Created surface");
-                Log.d(TAG, "Setting " + width + " , " + height);
-
-                Size viewSize = new Size(width, height);
-//                Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
-
-                converter.setbGSurfaceTextureAndAttachToGLContext(
-                        previewFrameTexture, width, height);
-
-                converter.setSurfaceTextureAndAttachToGLContext(
-                        surfaceTexture, width, height);
-
-
-            }
-
-            @Override
-            public void onSurfaceDestroyed() {
-                processor.getVideoSurfaceOutput().setSurface(null);
-            }
-
-            @Override
-            public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
-                Log.d(TAG, "On Surface Created");
-                Surface surface = new Surface(surfaceTexture);
-                processor.getVideoSurfaceOutput().setSurface(surface);
-
-
-            }
-        };
-        newSurfaceView.setCustomSurfaceListener(surfaceListener);
-    }
+//    private void startCamera() {
+//        cameraHelper = new MyCameraXHelper();
+//        cameraHelper.setOnCameraStartedListener(
+//                surfaceTexture -> {
+//                    previewFrameTexture = surfaceTexture;
+//                    // Make the display view visible to start showing the preview. This triggers the
+//                    // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
+//                    // videoTexture.setVisibility(View.VISIBLE);
+//                    newSurfaceView.setVisibility(View.VISIBLE);
+//                    newSurfaceView.resume();
+//
+//                    Log.d(TAG, "Camera Started");
+//                });
+//        cameraHelper.startCamera(this, CAMERA_FACING, /*surfaceTexture=*/ null);
+//    }
+//
+//    private void newSetupDisplay() {
+//        Log.d(TAG, "Creation start");
+//        newSurfaceView = new MyGL2SurfaceView(this);
+//        //newSurfaceView.setVisibility(View.GONE);
+//        ViewGroup viewGroup = findViewById(R.id.mediapie_view);
+//        viewGroup.removeAllViews();
+//        viewGroup.addView(newSurfaceView);
+//
+//        MyGL2SurfaceView.CustomSurfaceListener surfaceListener = new MyGL2SurfaceView.CustomSurfaceListener() {
+//            @Override
+//            public void onSurfaceChanged(int width, int height) {
+//                Log.d(TAG, "Created surface");
+//                Log.d(TAG, "Setting " + width + " , " + height);
+//
+//                Size viewSize = new Size(width, height);
+////                Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
+//
+//
+//                converter.setbGSurfaceTextureAndAttachToGLContext(
+//                        surfaceTexture, width, height);
+//
+//                converter.setSurfaceTextureAndAttachToGLContext(
+//                        previewFrameTexture, width, height);
+//
+//
+//            }
+//
+//            @Override
+//            public void onSurfaceDestroyed() {
+//                processor.getVideoSurfaceOutput().setSurface(null);
+//            }
+//
+//            @Override
+//            public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
+//                Log.d(TAG, "On Surface Created");
+//                Surface surface = new Surface(surfaceTexture);
+//                processor.getVideoSurfaceOutput().setSurface(surface);
+//
+//
+//            }
+//        };
+//        newSurfaceView.setCustomSurfaceListener(surfaceListener);
+//    }
 
 
     @Override
     protected void onPause() {
         super.onPause();
-        converter.onpause();
-        converter.close();
-        System.gc();
+        newSurfaceView.pause();
+
+//        converter.onpause();
+//        converter.close();
+//        System.gc();
     }
 
 
@@ -284,8 +277,6 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::MyWakelockTag");
-            wl.acquire();
             this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             this.requestWindowFeature(Window.FEATURE_NO_TITLE);
             this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN |
@@ -301,27 +292,34 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
             e.printStackTrace();
         }
 
+        if (!OpenCVLoader.initDebug())
+            Log.d("ERROR", "Unable to load OpenCV");
+        else
+            Log.d("SUCCESS", "OpenCV loaded " + System.currentTimeMillis());
+
+//
+//
         AndroidAssetUtil.initializeNativeAssetManager(this);
-        eglManager = new EglManager(null);
 
-        processor = new MultiInputFrameProcessor(
-                this,
-                eglManager.getNativeContext(),
-                BINARY_GRAPH_NAME,
-                INPUT_VIDEO_STREAM_NAME,
-                OUTPUT_VIDEO_STREAM_NAME, BG_VIDEO_INPUT_STREAM);
+        initializaMediapipe();
 
-        processor.getVideoSurfaceOutput().setFlipY(true); // Flip frames Vertically
-        processor.getGraph().addPacketCallback(OUTPUT_VIDEO_STREAM_NAME, new PacketCallback() {
-            @Override
-            public void process(Packet packet) {
-                Log.d(TAG, "On New Packet : " + packet.getTimestamp());
-            }
-        });
+//        eglManager = new EglManager(null);
+//
+//        processor = new MultiInputFrameProcessor(
+//                this,
+//                eglManager.getNativeContext(),
+//                BINARY_GRAPH_NAME,
+//                INPUT_VIDEO_STREAM_NAME,
+//                OUTPUT_VIDEO_STREAM_NAME, BG_VIDEO_INPUT_STREAM);
+//
+//        processor.getVideoSurfaceOutput().setFlipY(true); // Flip frames Vertically
+//        processor.getGraph().addPacketCallback(OUTPUT_VIDEO_STREAM_NAME, new PacketCallback() {
+//            @Override
+//            public void process(Packet packet) {
+//                Log.d(TAG, "On New Packet : " + packet.getTimestamp());
+//            }
+//        });
 
-
-        texture1 = findViewById(R.id.texture1);
-        texture2 = findViewById(R.id.texture2);
         cameraViewRenderer = findViewById(R.id.camera_view_renderer);
         pipViewRenderer = findViewById(R.id.pip_view_renderer);
         camTexture = findViewById(R.id.texture_view_Camera);
@@ -355,6 +353,30 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
                 }
             });
         }
+
+
+        cameraViewRenderer.getHolder().addCallback(new SurfaceHolder.Callback2() {
+            @Override
+            public void surfaceRedrawNeeded(SurfaceHolder surfaceHolder) {
+                Log.d("TEST", surfaceHolder.getSurface().toString() + "");
+            }
+
+            @Override
+            public void surfaceCreated(SurfaceHolder surfaceHolder) {
+
+            }
+
+            @Override
+            public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
+                Log.d("TEST", surfaceHolder.getSurface().toString() + "On changed ");
+            }
+
+            @Override
+            public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
+
+            }
+        });
+
 
         // Check for mandatory permissions.
         for (String permission : CallActivity.MANDATORY_PERMISSIONS) {
@@ -393,87 +415,68 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
             @Override
             public void onNewFrame(VideoFrame frame) {
 
+                VideoFrame.I420Buffer mainbuffer = frame.getBuffer().toI420();
+                // EGL14.eglMakeCurrent(new EGL14.eglGetDisplay(), new EGLSurface,new EGLContext());
+
             }
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-
-//                Log.d(TAG, "New ETxture");
-//
-//                runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        texture1.setSurfaceTexture(texture);
-//                    }
-//                });
-
-
-                //texture.detachFromGLContext();
-                //   texture.detachFromGLContext();
-
-
-                // previewFrameTexture = texture;
-                // texture.detachFromGLContext();
-
-                //previewFrameTexture = texture;
-                //  texture.detachFromGLContext();
-
-//                if(i==0)
-//                {
-//                    i=1;
-//                    previewFrameTexture = texture;
-//                    // Make the display view visible to start showing the preview. This triggers the
-//                    // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
-//                    // videoTexture.setVisibility(View.VISIBLE);
-//                    newSurfaceView.setVisibility(View.VISIBLE);
-//                    newSurfaceView.resume();
-
-
-
-                //
-                //  Log.d(TAG, "New Texture By WebR TC ");
-                // surfaceTexture = texture;
-                //   previewFrameTexture = texture;
-                //texture.detachFromGLContext();
-
-                //newSurfaceView.setVisibility(View.VISIBLE);
-                // newSurfaceView.resume();
-                //  previewFrameTexture = texture;
-
-
-                ///             surfaceTexture = texture;
+//                Log.d(TAG, "New Texture");
 //
 //                if (i == 0) {
-//                    previewFrameTexture = texture;
 //                    i = 1;
-//                    runOnUiThread(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            texture1.setSurfaceTexture(texture);
-//                        }
-//                    });
-//                    // texture.release();
-//                    texture.detachFromGLContext();
-//                } else {
-//                    surfaceTexture = texture;
-//                    i = 0;
+//                    //previewFrameTexture = texture;
+//
+////                    SurfaceTexture temp = new SurfaceTexture(12);
+////                    previewFrameTexture = temp;
+//
+//                    // previewFrameTexture.detachFromGLContext();
+//
+////                    runOnUiThread(new Runnable() {
+////                        @Override
+////                        public void run() {
+////                            texture2.setSurfaceTexture(texture);
+////                        }
+////                    });
+//
 //                    runOnUiThread(new Runnable() {
 //                        @Override
 //                        public void run() {
 //                            texture2.setSurfaceTexture(texture);
-//                           // texture.detachFromGLContext();
 //                        }
 //                    });
+//
+//                    texture.detachFromGLContext();
+//
+//
+////                    texture2.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+////                        @Override
+////                        public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
+////
+////                        }
+////
+////                        @Override
+////                        public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int i, int i1) {
+////
+////                        }
+////
+////                        @Override
+////                        public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+////                            return false;
+////                        }
+////
+////                        @Override
+////                        public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
+////                            if (j == 0) {
+////                                j = 1;
+////                                //previewFrameTexture = surfaceTexture;
+////
+////                            }
+////                        }
+////                    });
+//
 //                }
-                // texture.release();
-                //texture.detachFromGLContext();
-                //  Log.d(TAG, "Timestamp: " + String.valueOf(texture.getTimestamp()));
-
-//                if(texture.isReleased())
-//                 texture.detachFromGLContext();
-//                previewDisplayView.setVisibility(View.VISIBLE);
-//                previewFrameTexture = texture;
-
             }
             //  }
         });
@@ -481,17 +484,19 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         webRTCClient.setNetworkTextureListioner(new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
-
-//                Log.d(TAG, "New Texture From Network");
-//                //previewFrameTexture = texture;
-//                runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        texture1.setSurfaceTexture(texture);
-//                    }
-//                });
-//                texture.detachFromGLContext();
-
+//                Log.d(TAG, "new Network Texture");
+//
+////                Log.d(TAG, "New Texture From Network");
+////                //previewFrameTexture = texture;
+//                    runOnUiThread(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            texture1.setSurfaceTexture(texture);
+//                        }
+//
+//                    });
+//
+//                    texture.detachFromGLContext();
 
             }
         });
@@ -568,103 +573,66 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 //                processor.getVideoSurfaceOutput().setSurface(null);
 //            }
 //        });
+        cameraViewRenderer.addFrameListener(new EglRenderer.FrameListener() {
+            @Override
+            public void onFrame(Bitmap frame) {
+                Log.d("TEST", "mON Bitmap Frame");
+            }
+        }, 20f);
+
 
         cameraViewRenderer.setFrameListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
-
+                Log.d(TAG, "new Frame by CameraRenderer");
 //                VideoFrame.I420Buffer mainBuffer = frame.getBuffer().toI420();
-//                // YUV merging
-//                int Yb = mainBuffer.getDataY().remaining();
-//                int Ub = mainBuffer.getDataU().remaining();
-//                int Vb = mainBuffer.getDataV().remaining();
 //
-//                byte[] data = new byte[Yb + Ub + Vb];
+//                byte[] byteY = new byte[mainBuffer.getDataY().remaining()];
+//                mainBuffer.getDataY().get(byteY);
 //
-//                mainBuffer.getDataY().get(data, 0, Yb);
-//                mainBuffer.getDataU().get(data, Yb, Ub);
-//                mainBuffer.getDataV().get(data, Yb + Ub, Vb);
+//                byte[] byteU = new byte[mainBuffer.getDataU().remaining()];
+//                mainBuffer.getDataU().get(byteU);
 //
+//                byte[] byteV = new byte[mainBuffer.getDataV().remaining()];
+//                mainBuffer.getDataV().get(byteV);
 //
-//                ByteArrayOutputStream out = new ByteArrayOutputStream();
-//                int[] strides = new int[2];
-//                strides[0] = mainBuffer.getStrideY();
-//                strides[1] = mainBuffer.getStrideU();
-//                strides[2] = mainBuffer.getStrideV();
+//                byte[] finalBuffer = new byte[byteY.length + byteU.length + byteV.length];
 //
-//                YuvImage yuvImage = new YuvImage(data, ImageFormat.NV21, frame.getRotatedWidth(), frame.getRotatedHeight(), strides);
-//                yuvImage.compressToJpeg(new Rect(0, 0, frame.getRotatedWidth(), frame.getRotatedHeight()), 100, out);
-//                byte[] imageBytes = out.toByteArray();
-//                Bitmap image = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
-//                //iv.setImageBitmap(image);
+//                Mat picyv12 = new Mat(frame.getRotatedHeight(), frame.getRotatedWidth(), CvType.CV_8UC1);  //(im_height*3/2,im_width), should be even no...
 
-                //      Log.d(TAG, "new Frame by CameraRenderer with Id : ");
 
-                /* o
+                Bitmap iconbg = Bitmap.createBitmap(400, 800, Bitmap.Config.ARGB_8888);
+                Bitmap iconfg = Bitmap.createBitmap(400, 800, Bitmap.Config.ARGB_8888);
 
-                Other Solution to Merge All them
-                    Image.Plane Y = image.getPlanes()[0];
-    Image.Plane U = image.getPlanes()[1];
-    Image.Plane V = image.getPlanes()[2];
+                //
+//                System.arraycopy(byteY, 0, finalBuffer, 0, byteY.length);
+//                System.arraycopy(byteU, 0, finalBuffer, byteY.length, byteU.length);
+//                System.arraycopy(byteV, 0, finalBuffer, byteY.length + byteU.length, byteV.length);
+//
+//                picyv12.put(0, 0, finalBuffer); // buffer - byte array with i420 data
+//             //   Imgproc.cvtColor(picyv12, picyv12, Imgproc.COLOR_YUV2BGR_YV12);
+//
+//                Utils.matToBitmap(picyv12, tbmp2);
+                Log.d(TAG, "Tesrt");
 
-    int Yb = Y.getBuffer().remaining();
-    int Ub = U.getBuffer().remaining();
-    int Vb = V.getBuffer().remaining();
+                // Bitmap icon = BitmapFactory.decodeResource(getResources(),R.drawable.button_focus);
+                if (new Random().nextInt(200) > 100) {
+                    iconbg.eraseColor(Color.GREEN);
+                    iconfg.eraseColor(Color.RED);
+                } else {
+                    iconbg.eraseColor(Color.RED);
+                    iconfg.eraseColor(Color.GREEN);
+                }
 
-    byte[] data = new byte[Yb + Ub + Vb];
+                mediapipeController.onForegroundFrame(iconfg);
+                mediapipeController.onBackGroundFrame(iconbg);
+                Log.d(TAG, GLES20.glGetError() + "Egl status");
 
-    Y.getBuffer().get(data, 0, Yb);
-    U.getBuffer().get(data, Yb, Ub);
-    V.getBuffer().get(data, Yb+ Ub, Vb);
-
-                 */
-
-//                long startTimei = SystemClock.uptimeMillis();
-//                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
-//                Mat picyv12 = new Mat(frame.getRotatedHeight() * 3 / 2, frame.getRotatedWidth(), CV_8UC1);  //(im_height*3/2,im_width), should be even no...
-//
-//                byte[] arr = new byte[frame.getBuffer().getHeight() * fra];
-//                frame.getBuffer().toI420().getDataY().get(arr, 0, frame.getBuffer().toI420().getDataY().capacity());
-//                picyv12.put(0, 0, frame.getBuffer().toI420().getDataY().capacity()); // buffer - byte array with i420 data
-//                cvtColor(picyv12, picyv12, Imgproc.COLOR_YUV2BGR_YV12);
-//                long endTimei = SystemClock.uptimeMillis();
-//                Log.d("i420_time", Long.toString(endTimei - startTimei) + " ," + frame.getRotatedWidth() + "," + frame.getRotatedHeight());
-//                Log.d("picyv12_size", picyv12.size().toString()); // Check size
-//                Log.d("picyv12_type", String.valueOf(picyv12.type())); // Check type
-//                VideoFrame.I420Buffer yuVBuffer = frame.getBuffer().toI420();
-//                // New Impl
-//                byte[] nv21;
-//                ByteBuffer yBuffer = yuVBuffer.getDataY();
-//                ByteBuffer uBuffer = yuVBuffer.getDataU();
-//                ByteBuffer vBuffer = yuVBuffer.getDataV();
-//
-//                int ySize = yBuffer.remaining();
-//                int uSize = uBuffer.remaining();
-//                int vSize = vBuffer.remaining();
-//
-//                nv21 = new byte[ySize + uSize + vSize];
-//
-//                //U and V are swapped
-//                yBuffer.get(nv21, 0, ySize);
-//                vBuffer.get(nv21, ySize, vSize);
-//                uBuffer.get(nv21, ySize + vSize, uSize);
-//
-//                Mat mRGB = getYUV2Mat(nv21, frame.getRotatedHeight(), frame.getRotatedWidth());
-//
-//                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
-//
-//                Utils.matToBitmap(mRGB, tbmp2); // Convert mat to bitmap (height, width) i.e (512,512) - ARGB_888
-//                //       SaveBitmap.save(mContext,tbmp2,"Segmented");
-//                //  save(tbmp2,"itest"); // Save bitmap
-//
-//                Bitmap original = tbmp2;
-//
-//              //  Log.d(TAG, "new Frame by CameraRenderer with Id : ");
             }
 
             @Override
             public void onNewTexture(SurfaceTexture texture) {
-//                Log.d(TAG, "new Texture by CameraRenderer");
+
 //                runOnUiThread(new Runnable() {
 //                    @Override
 //                    public void run() {
@@ -676,11 +644,37 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
 
             }
         });
-
         pipViewRenderer.setFrameListioner(new NewFrameListioner() {
             @Override
             public void onNewFrame(VideoFrame frame) {
-                // Log.d(TAG,"new Frame by pipViewRenderer");
+                Log.d(TAG, "new Frame by pipViewRenderer");
+
+//                VideoFrame.I420Buffer mainBuffer = frame.getBuffer().toI420();
+//
+//                byte[] byteY = new byte[mainBuffer.getDataY().remaining()];
+//                mainBuffer.getDataY().get(byteY);
+//
+//                byte[] byteU = new byte[mainBuffer.getDataU().remaining()];
+//                mainBuffer.getDataU().get(byteU);
+//
+//                byte[] byteV = new byte[mainBuffer.getDataV().remaining()];
+//                mainBuffer.getDataV().get(byteV);
+//
+//                byte[] finalBuffer = new byte[byteY.length + byteU.length + byteV.length];
+//
+//                Mat picyv12 = new Mat(frame.getRotatedHeight(), frame.getRotatedWidth(), CvType.CV_8UC1);  //(im_height*3/2,im_width), should be even no...
+//                Bitmap tbmp2 = Bitmap.createBitmap(frame.getRotatedWidth(), frame.getRotatedHeight(), Bitmap.Config.ARGB_8888);
+//
+//                System.arraycopy(byteY, 0, finalBuffer, 0, byteY.length);
+//                System.arraycopy(byteU, 0, finalBuffer, byteY.length, byteU.length);
+//                System.arraycopy(byteV, 0, finalBuffer, byteY.length + byteU.length, byteV.length);
+//
+//                picyv12.put(0, 0, finalBuffer); // buffer - byte array with i420 data
+//               // Imgproc.cvtColor(picyv12, picyv12, Imgproc.COLOR_YUV2BGR_YV12);
+//
+//                Utils.matToBitmap(picyv12, tbmp2);
+                Bitmap icon = BitmapFactory.decodeResource(getResources(), R.drawable.button_focus);
+                mediapipeController.onBackGroundFrame(icon);
             }
 
             @Override
@@ -1004,20 +998,48 @@ public class MainActivity extends AppCompatActivity implements IWebRTCListener, 
         return mRGB;
     }
 
-    public void mediaPlay() {
+    private void resumeMediapipe() {
         try {
-            surfaceTexture = new MySurfaceTexture(42);
-            player = new NewDefaultPlayer();
-            player.setSurface(new Surface(surfaceTexture));
-            player.setDataSource("http://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel.ism/.m3u8");
-            player.setLooping(true);
-            //player.setBufferEventInfoListner(bufferEventInfoListner);
-            player.prepare();
-            player.start();
+            Log.d("SURFACE_CREATION", "Activity resume");
+            newSurfaceView = new MyGL2SurfaceView(this);
+            mediapipeController.setOutputSurface(newSurfaceView);
+            setToListenEvent();
+            mediapipeController.resume();
+            //startSegmentation();
         } catch (Exception e) {
-            Log.d(TAG, e.toString());
-            e.printStackTrace();
+
         }
+    }
+
+    public void setToListenEvent() {
+        newSurfaceView.setTochListner(new GLTochListner() {
+            @Override
+            public void onTochEvent(MotionEvent event) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        //onScreenTauch();
+                    }//
+                });
+            }
+        });
+    }
+
+
+    public void mediaPlay() {
+//        try {
+//            surfaceTexture = new MySurfaceTexture(42);
+//            player = new NewDefaultPlayer();
+//            player.setSurface(new Surface(surfaceTexture));
+//            player.setDataSource("http://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel.ism/.m3u8");
+//            player.setLooping(true);
+//            //player.setBufferEventInfoListner(bufferEventInfoListner);
+//            player.prepare();
+//            player.start();
+//        } catch (Exception e) {
+//            Log.d(TAG, e.toString());
+//            e.printStackTrace();
+//        }
     }
 
 

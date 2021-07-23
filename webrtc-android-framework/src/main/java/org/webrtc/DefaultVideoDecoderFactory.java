@@ -57,6 +57,7 @@ Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
         this.hardwareVideoDecoderFactory = new HardwareVideoDecoderFactory(eglContext, new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
+                Log.d("Callback","New Net Texture in "+TAG);
                 if (listioner != null)
                     listioner.onNewNetworkTexture(texture);
             }
@@ -65,6 +66,7 @@ Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
         this.platformSoftwareVideoDecoderFactory = new PlatformSoftwareVideoDecoderFactory(eglContext, new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
+                Log.d("Callback","New Net Texture in "+TAG);
                 if (listioner != null)
                     listioner.onNewNetworkTexture(texture);
             }

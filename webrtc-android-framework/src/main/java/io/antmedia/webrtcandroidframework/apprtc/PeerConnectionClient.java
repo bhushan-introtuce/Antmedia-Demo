@@ -548,6 +548,7 @@ Adding Listioners for Network Texture Litioner @NewNetworkTextureListioner
         NewNetworkTextureListioner listioner1 = new NewNetworkTextureListioner() {
             @Override
             public void onNewNetworkTexture(SurfaceTexture texture) {
+                Log.d("Callback","New Net Texture in "+TAG);
                 if (listioner != null)
                     listioner.onNewNetworkTexture(texture);
             }

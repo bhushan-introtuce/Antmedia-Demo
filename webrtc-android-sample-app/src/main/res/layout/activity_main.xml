@@ -10,8 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:visibility="gone">
+        android:layout_alignParentTop="true">
 
         <org.webrtc.SurfaceViewRenderer
             android:id="@+id/camera_view_renderer"
@@ -75,21 +74,24 @@
 
 
     <FrameLayout
-        android:id="@+id/mediapie_view"
+        android:id="@+id/mediapipeView"
         android:layout_width="match_parent"
-        android:layout_height="200dp" />
+        android:layout_height="200dp"
+        android:visibility="gone" />
 
     <TextureView
         android:id="@+id/texture1"
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        android:layout_below="@+id/mediapie_view" />
+        android:layout_below="@+id/mediapipeView"
+        android:visibility="gone" />
 
     <TextureView
         android:id="@+id/texture2"
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        android:layout_below="@+id/texture1" />
+        android:layout_below="@+id/texture1"
+        android:visibility="gone" />
 
 
 </RelativeLayout>

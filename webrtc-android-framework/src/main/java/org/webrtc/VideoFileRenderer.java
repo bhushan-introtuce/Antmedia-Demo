@@ -26,8 +26,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  * Can be used to save the video frames to file.
  */
 public class VideoFileRenderer implements VideoSink {
-  private static final String TAG = "VideoFileRenderer";
 
+
+  private static final String TAG = "VideoFileRenderer";
   private final HandlerThread renderThread;
   private final Handler renderThreadHandler;
   private final HandlerThread fileThread;
@@ -42,6 +43,7 @@ public class VideoFileRenderer implements VideoSink {
   private YuvConverter yuvConverter;
   private int frameCount;
 
+
   public VideoFileRenderer(String outputFile, int outputFileWidth, int outputFileHeight,
       final EglBase.Context sharedContext) throws IOException {
     if ((outputFileWidth % 2) == 1 || (outputFileHeight % 2) == 1) {
@@ -51,10 +53,8 @@ public class VideoFileRenderer implements VideoSink {
     this.outputFileName = outputFile;
     this.outputFileWidth = outputFileWidth;
     this.outputFileHeight = outputFileHeight;
-
     outputFrameSize = outputFileWidth * outputFileHeight * 3 / 2;
     outputFrameBuffer = ByteBuffer.allocateDirect(outputFrameSize);
-
     videoOutFile = new FileOutputStream(outputFile);
     videoOutFile.write(
         ("YUV4MPEG2 C420 W" + outputFileWidth + " H" + outputFileHeight + " Ip F30:1 A1:1\n")
